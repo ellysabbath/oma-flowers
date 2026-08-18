@@ -1,0 +1,173 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #007bff;
+  --color-secondary: #ff6b00;
+  --font-family-sans: system-ui, -apple-system, sans-serif;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-family-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    background-color: var(--color-primary);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 9999px;
+    transition: all 0.3s;
+  }
+  .btn-primary:hover {
+    background-color: #0056b3;
+  }
+  
+  .btn-secondary {
+    background-color: var(--color-secondary);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 9999px;
+    transition: all 0.3s;
+  }
+  .btn-secondary:hover {
+    background-color: #cc5500;
+  }
+  
+  .product-card {
+    background-color: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    transition: all 0.3s;
+    overflow: hidden;
+  }
+  .product-card:hover {
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+  }
+  
+  .section-title {
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 1.5rem;
+  }
+}
+
+
+
+/* src/index.css - Add these styles */
+
+/* Golden theme animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease-out;
+}
+
+/* Golden gradient text */
+.golden-text {
+  background: linear-gradient(135deg, #b8860b 0%, #d4a017 30%, #ffd700 50%, #d4a017 70%, #b8860b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Golden button hover effect */
+.golden-btn-hover {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.golden-btn-hover::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 215, 0, 0.1) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  transform: scale(0);
+}
+
+.golden-btn-hover:hover::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Golden border glow */
+.golden-border-glow {
+  border: 2px solid transparent;
+  background-image: linear-gradient(white, white), 
+                    linear-gradient(135deg, #b8860b, #ffd700, #b8860b);
+  background-origin: padding-box, border-box;
+  background-clip: padding-box, border-box;
+}
+
+/* Golden card shadow */
+.golden-shadow {
+  box-shadow: 0 4px 20px rgba(184, 134, 11, 0.15), 
+              0 2px 8px rgba(184, 134, 11, 0.08);
+}
+
+.golden-shadow-hover:hover {
+  box-shadow: 0 8px 30px rgba(184, 134, 11, 0.25), 
+              0 4px 12px rgba(184, 134, 11, 0.12);
+}
+
+/* Custom scrollbar for dropdown */
+.dropdown-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.dropdown-scroll::-webkit-scrollbar-track {
+  background: #fdf6ee;
+  border-radius: 10px;
+}
+
+.dropdown-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #b8860b, #d4a017);
+  border-radius: 10px;
+}
+
+.dropdown-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #d4a017, #b8860b);
+}
+
+/* src/index.css */
+/* Custom scrollbar for admin sidebar */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(251, 191, 36, 0.3);
+  border-radius: 10px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(251, 191, 36, 0.5);
+}
+
+/* Firefox scrollbar */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(251, 191, 36, 0.3) transparent;
+}

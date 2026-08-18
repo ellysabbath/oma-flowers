@@ -22,12 +22,20 @@ import ResetPassword from './pages/auth/ResetPassword';
 import AccountVerify from './pages/auth/AccountVerify';
 import PasswordResetVerify from './pages/auth/PasswordResetVerify';
 
+// Shop Pages
+import Shop from './pages/Shop';
+import SinglePage from './pages/SinglePage';
+import Bestseller from './pages/Bestseller';
+import Cart from './pages/Cart';
+import Checkout from './pages/Checkout';
+
+
 // Admin Pages
 import AdminLayout from './components/admin/AdminLayout';
 import Dashboard from './pages/Admin/Dashboard';
 import Distributors from './pages/Admin/Distributors';
 import Products from './pages/Admin/Products';
-import Orders from './pages/Admin/Orders';
+import AdminOrders from './pages/Admin/Orders';
 import Commissions from './pages/Admin/Commissions';
 import Bonuses from './pages/Admin/Bonuses';
 import Awards from './pages/Admin/Awards';
@@ -41,6 +49,12 @@ import { AuthProvider } from './context/AuthContext';
 import { AdminProvider } from './context/AdminContext';
 
 import { products, services, tabs } from './components/data/data';
+import Contact from './pages/Contact';
+import Wishlist from './pages/Wishlist';
+import Account from './pages/Account';
+import Orders from './pages/Orders';
+import Search from './pages/Search';
+import Category from './pages/Category';
 
 // Component to handle scroll restoration and page tracking
 const ScrollToTop: React.FC = () => {
@@ -167,7 +181,7 @@ const AppContent: React.FC = () => {
             <Route index element={<Dashboard />} />
             <Route path="distributors" element={<Distributors />} />
             <Route path="products" element={<Products />} />
-            <Route path="orders" element={<Orders />} />
+            <Route path="orders" element={<AdminOrders />} />
             <Route path="commissions" element={<Commissions />} />
             <Route path="bonuses" element={<Bonuses />} />
             <Route path="awards" element={<Awards />} />
@@ -180,122 +194,67 @@ const AppContent: React.FC = () => {
           {/* Shop Pages */}
           <Route path="/shop" element={
             <LayoutWrapper>
-              <div className="min-h-[60vh] py-12">
-                <div className="container mx-auto px-4">
-                  <h1 className="text-3xl font-bold text-gray-800">Shop</h1>
-                  <p className="text-gray-600 mt-2">Browse our collection</p>
-                </div>
-              </div>
+              <Shop />
             </LayoutWrapper>
           } />
           
           <Route path="/single-page" element={
             <LayoutWrapper>
-              <div className="min-h-[60vh] py-12">
-                <div className="container mx-auto px-4">
-                  <h1 className="text-3xl font-bold text-gray-800">Single Page</h1>
-                  <p className="text-gray-600 mt-2">Product details</p>
-                </div>
-              </div>
+              <SinglePage />
             </LayoutWrapper>
           } />
           
           <Route path="/bestseller" element={
             <LayoutWrapper>
-              <div className="min-h-[60vh] py-12">
-                <div className="container mx-auto px-4">
-                  <h1 className="text-3xl font-bold text-gray-800">Bestseller</h1>
-                  <p className="text-gray-600 mt-2">Our top selling products</p>
-                </div>
-              </div>
+              <Bestseller />
             </LayoutWrapper>
           } />
           
           <Route path="/cart" element={
             <LayoutWrapper>
-              <div className="min-h-[60vh] py-12">
-                <div className="container mx-auto px-4">
-                  <h1 className="text-3xl font-bold text-gray-800">Shopping Cart</h1>
-                  <p className="text-gray-600 mt-2">Your cart is empty</p>
-                </div>
-              </div>
+              <Cart />
             </LayoutWrapper>
           } />
           
           <Route path="/checkout" element={
             <LayoutWrapper>
-              <div className="min-h-[60vh] py-12">
-                <div className="container mx-auto px-4">
-                  <h1 className="text-3xl font-bold text-gray-800">Checkout</h1>
-                  <p className="text-gray-600 mt-2">Complete your order</p>
-                </div>
-              </div>
+              <Checkout />
             </LayoutWrapper>
           } />
           
           <Route path="/contact" element={
             <LayoutWrapper>
-              <div className="min-h-[60vh] py-12">
-                <div className="container mx-auto px-4">
-                  <h1 className="text-3xl font-bold text-gray-800">Contact Us</h1>
-                  <p className="text-gray-600 mt-2">Get in touch with us</p>
-                </div>
-              </div>
+              <Contact />
             </LayoutWrapper>
           } />
           
           <Route path="/wishlist" element={
             <LayoutWrapper>
-              <div className="min-h-[60vh] py-12">
-                <div className="container mx-auto px-4">
-                  <h1 className="text-3xl font-bold text-gray-800">Wishlist</h1>
-                  <p className="text-gray-600 mt-2">Your saved items</p>
-                </div>
-              </div>
+              <Wishlist />
             </LayoutWrapper>
           } />
           
           <Route path="/account" element={
             <LayoutWrapper>
-              <div className="min-h-[60vh] py-12">
-                <div className="container mx-auto px-4">
-                  <h1 className="text-3xl font-bold text-gray-800">My Account</h1>
-                  <p className="text-gray-600 mt-2">Manage your profile</p>
-                </div>
-              </div>
+              <Account />
             </LayoutWrapper>
           } />
           
           <Route path="/orders" element={
             <LayoutWrapper>
-              <div className="min-h-[60vh] py-12">
-                <div className="container mx-auto px-4">
-                  <h1 className="text-3xl font-bold text-gray-800">My Orders</h1>
-                  <p className="text-gray-600 mt-2">View your order history</p>
-                </div>
-              </div>
+              <Orders />
             </LayoutWrapper>
           } />
           
           <Route path="/search" element={
             <LayoutWrapper>
-              <div className="min-h-[60vh] py-12">
-                <div className="container mx-auto px-4">
-                  <h1 className="text-3xl font-bold text-gray-800">Search Results</h1>
-                  <p className="text-gray-600 mt-2">Find what you're looking for</p>
-                </div>
-              </div>
+              <Search />
             </LayoutWrapper>
           } />
           
           <Route path="/category/:category" element={
             <LayoutWrapper>
-              <div className="min-h-[60vh] py-12">
-                <div className="container mx-auto px-4">
-                  <h1 className="text-3xl font-bold text-gray-800 capitalize">Category</h1>
-                  <p className="text-gray-600 mt-2">Browse products by category</p>
-                </div>
-              </div>
+              <Category />
             </LayoutWrapper>
           } />
           

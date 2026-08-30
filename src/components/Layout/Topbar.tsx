@@ -70,7 +70,7 @@ const Topbar: React.FC = () => {
               <Phone size={14} className="text-primary" />
               <span className="text-gray-600">Call Us:</span>
               <span className="text-gray-800 font-medium hover:text-primary cursor-pointer transition-colors">
-                (+012) 1234 567890
+                (+255) 7425 786 91
               </span>
             </div>
 
@@ -82,16 +82,16 @@ const Topbar: React.FC = () => {
                   className="text-gray-600 hover:text-primary flex items-center gap-1 transition-colors"
                   onClick={() => setIsCurrencyOpen(!isCurrencyOpen)}
                 >
-                  <span className="font-medium">USD</span>
+                  <span className="font-medium">TZS</span>
                   <ChevronDown size={14} className={`transition-transform ${isCurrencyOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {isCurrencyOpen && (
                   <div className="absolute right-0 mt-2 w-32 bg-white rounded-lg shadow-lg border border-gray-100 z-50 py-1">
                     <span 
-                      onClick={() => handleNavigation('/currency/usd')}
+                      onClick={() => handleNavigation('/currency/tzs')}
                       className="block px-4 py-2 hover:bg-primary/10 cursor-pointer transition-colors"
                     >
-                      USD - Dollar
+                      TZS - Shillings
                     </span>
                     <span 
                       onClick={() => handleNavigation('/currency/eur')}
@@ -244,7 +244,7 @@ const Topbar: React.FC = () => {
               <div className="flex items-center gap-1">
                 <Phone size={12} className="text-primary" />
                 <span className="text-gray-600 text-[10px] hidden sm:inline">Call:</span>
-                <span className="text-gray-800 font-medium text-[10px]">+0123 456 7890</span>
+                <span className="text-gray-800 font-medium text-[10px]">+255 7425 786 91</span>
               </div>
 
               {/* Mobile Currency */}
@@ -253,7 +253,7 @@ const Topbar: React.FC = () => {
                   className="text-gray-600 hover:text-primary flex items-center gap-0.5 transition-colors"
                   onClick={() => setIsCurrencyOpen(!isCurrencyOpen)}
                 >
-                  <span className="font-medium text-[10px]">USD</span>
+                  <span className="font-medium text-[10px]">TZS</span>
                   <ChevronDown size={12} className={`transition-transform ${isCurrencyOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {isCurrencyOpen && (
@@ -262,7 +262,7 @@ const Topbar: React.FC = () => {
                       onClick={() => handleNavigation('/currency/usd')}
                       className="block px-3 py-1.5 text-xs hover:bg-primary/10 cursor-pointer transition-colors"
                     >
-                      USD
+                      TZS
                     </span>
                     <span 
                       onClick={() => handleNavigation('/currency/eur')}

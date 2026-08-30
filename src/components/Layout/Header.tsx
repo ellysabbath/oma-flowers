@@ -1,7 +1,7 @@
 // src/components/Layout/Header.tsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, ShoppingBag, ShoppingCart, Heart, RefreshCw, User, LogIn, UserPlus, ChevronDown } from 'lucide-react';
+import { Search, ShoppingBag, ShoppingCart, Heart, RefreshCw, User, LogIn, UserPlus, ChevronDown, Crown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface HeaderProps {
@@ -34,7 +34,7 @@ const Header: React.FC<HeaderProps> = ({ cartCount = 0 }) => {
           {/* Logo */}
           <Link to="/" className="flex items-center group">
             <div className="relative">
-              <ShoppingBag className="text-amber-600 mr-2 transition-all duration-300 group-hover:scale-110 group-hover:text-amber-700" size={32} />
+              <Crown className="text-amber-600 mr-2 transition-all duration-300 group-hover:scale-110 group-hover:text-amber-700" size={32} />
               <div className="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
             </div>
             <div>
@@ -104,7 +104,7 @@ const Header: React.FC<HeaderProps> = ({ cartCount = 0 }) => {
                   </span>
                 )}
               </div>
-              <span className="text-amber-800 font-semibold">$0.00</span>
+              <span className="text-amber-800 font-semibold">0.00TZS/=</span>
             </Link>
 
             {/* Account Dropdown */}

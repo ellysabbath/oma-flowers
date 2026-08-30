@@ -16,7 +16,8 @@ import {
   LogOut,
   Flower2,
   TrendingUp,
-  Star
+  Star,
+  Crown
 } from 'lucide-react';
 
 interface MenuItem {
@@ -67,7 +68,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen, onClose }) => {
         <div className="flex items-center justify-center h-20 border-b border-amber-600/30 px-4 flex-shrink-0">
           <Link to="/admin" className="flex items-center gap-3 group">
             <div className="relative">
-              <Flower2 className="text-amber-300 group-hover:text-amber-200 transition-colors" size={32} />
+              <Crown className="text-amber-300 group-hover:text-amber-200 transition-colors" size={32} />
               <div className="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
             </div>
             <span className={`

@@ -21,7 +21,7 @@ const Footer: React.FC = () => {
             </div>
             <div>
               <h4 className="font-bold text-sm uppercase tracking-wider text-gray-300">Address</h4>
-              <p className="text-gray-400 text-sm mt-1">123 Street, New York, USA</p>
+              <p className="text-gray-400 text-sm mt-1">barabara ya nane Street, DODOMA, TANZANIA</p>
             </div>
           </div>
           
@@ -31,8 +31,8 @@ const Footer: React.FC = () => {
             </div>
             <div>
               <h4 className="font-bold text-sm uppercase tracking-wider text-gray-300">Mail Us</h4>
-              <p className="text-gray-400 text-sm mt-1">info@electro.com</p>
-              <p className="text-gray-500 text-xs">support@electro.com</p>
+              <p className="text-gray-400 text-sm mt-1">info@omaflowers.com</p>
+              <p className="text-gray-500 text-xs">support@omaflowers.com</p>
             </div>
           </div>
           
@@ -42,7 +42,7 @@ const Footer: React.FC = () => {
             </div>
             <div>
               <h4 className="font-bold text-sm uppercase tracking-wider text-gray-300">Telephone</h4>
-              <p className="text-gray-400 text-sm mt-1">(+012) 3456 7890</p>
+              <p className="text-gray-400 text-sm mt-1">(+255) 7425 786 92</p>
               <p className="text-gray-500 text-xs">Mon-Fri: 9AM - 6PM</p>
             </div>
           </div>
@@ -53,7 +53,7 @@ const Footer: React.FC = () => {
             </div>
             <div>
               <h4 className="font-bold text-sm uppercase tracking-wider text-gray-300">Website</h4>
-              <p className="text-gray-400 text-sm mt-1">www.electro.com</p>
+              <p className="text-gray-400 text-sm mt-1">www.omaflowers.com</p>
               <p className="text-gray-500 text-xs">24/7 Online</p>
             </div>
           </div>
@@ -256,7 +256,7 @@ const Footer: React.FC = () => {
         {/* Bottom Section */}
         <div className="mt-12 pt-6 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="text-gray-400 text-sm text-center md:text-left">
-            <p>&copy; 2024 <span className="text-white font-medium">Electro</span>. All rights reserved.</p>
+            <p>&copy; 2024 <span className="text-white font-medium">omaflowers</span>. All rights reserved.</p>
           </div>
           
           <div className="flex items-center gap-6 text-sm">

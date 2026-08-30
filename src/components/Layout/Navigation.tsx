@@ -228,7 +228,7 @@ const Navigation: React.FC<NavigationProps> = ({ toggleSidebar }) => {
             to="/contact"
             className="hidden lg:inline-block bg-secondary text-white py-2 px-4 rounded-full transition-colors hover:bg-orange-600 text-sm font-medium"
           >
-            <Phone size={16} className="inline mr-2" /> +0123 456 7890
+            <Phone size={16} className="inline mr-2" /> +255 74257 86 91
           </Link>
 
           {/* Mobile Menu Toggle */}

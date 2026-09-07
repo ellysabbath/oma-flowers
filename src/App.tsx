@@ -55,6 +55,11 @@ import Account from './pages/Account';
 import Orders from './pages/Orders';
 import Search from './pages/Search';
 import Category from './pages/Category';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
+import Blog from './pages/Blog';
+import FAQ from './pages/FAQ';
+import About from './pages/About';
 
 // Component to handle scroll restoration and page tracking
 const ScrollToTop: React.FC = () => {
@@ -257,6 +262,39 @@ const AppContent: React.FC = () => {
               <Category />
             </LayoutWrapper>
           } />
+
+
+
+          // Add these routes after the shop pages:
+<Route path="/about" element={
+  <LayoutWrapper>
+    <About />
+  </LayoutWrapper>
+} />
+
+<Route path="/faq" element={
+  <LayoutWrapper>
+    <FAQ />
+  </LayoutWrapper>
+} />
+
+<Route path="/blog" element={
+  <LayoutWrapper>
+    <Blog />
+  </LayoutWrapper>
+} />
+
+<Route path="/terms" element={
+  <LayoutWrapper>
+    <Terms />
+  </LayoutWrapper>
+} />
+
+<Route path="/privacy" element={
+  <LayoutWrapper>
+    <Privacy />
+  </LayoutWrapper>
+} />
           
           {/* Catch all route - 404 */}
           <Route path="*" element={

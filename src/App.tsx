@@ -28,7 +28,17 @@ import SinglePage from './pages/SinglePage';
 import Bestseller from './pages/Bestseller';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
-
+import Contact from './pages/Contact';
+import Wishlist from './pages/Wishlist';
+import Account from './pages/Account';
+import Orders from './pages/Orders';
+import Search from './pages/Search';
+import Category from './pages/Category';
+import About from './pages/About';
+import FAQ from './pages/FAQ';
+import Blog from './pages/Blog';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
 
 // Admin Pages
 import AdminLayout from './components/admin/AdminLayout';
@@ -44,22 +54,17 @@ import Analytics from './pages/Admin/Analytics';
 import Categories from './pages/Admin/Categories';
 import Settings from './pages/Admin/Settings';
 
+// Distributor Pages
+import DistributorLayout from './components/DistributorLayout';
+import DistributorDashboard from './pages/distributor/Dashboard';
+import DistributorOrders from './pages/distributor/Orders';
+import DistributorDownline from './pages/distributor/Downline';
+
 // Auth Context
 import { AuthProvider } from './context/AuthContext';
 import { AdminProvider } from './context/AdminContext';
 
 import { products, services, tabs } from './components/data/data';
-import Contact from './pages/Contact';
-import Wishlist from './pages/Wishlist';
-import Account from './pages/Account';
-import Orders from './pages/Orders';
-import Search from './pages/Search';
-import Category from './pages/Category';
-import Privacy from './pages/Privacy';
-import Terms from './pages/Terms';
-import Blog from './pages/Blog';
-import FAQ from './pages/FAQ';
-import About from './pages/About';
 
 // Component to handle scroll restoration and page tracking
 const ScrollToTop: React.FC = () => {
@@ -123,6 +128,12 @@ const AuthLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // In a real app, you would check if user is authenticated and has admin role
   // For now, we'll just render the children
+  return <>{children}</>;
+};
+
+// Distributor route guard
+const DistributorRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // In a real app, you would check if user is authenticated and has distributor role
   return <>{children}</>;
 };
 
@@ -196,6 +207,17 @@ const AppContent: React.FC = () => {
             <Route path="settings" element={<Settings />} />
           </Route>
           
+          {/* Distributor Pages */}
+          <Route path="/distributor" element={
+            <DistributorRoute>
+              <DistributorLayout />
+            </DistributorRoute>
+          }>
+            <Route index element={<DistributorDashboard />} />
+            <Route path="orders" element={<DistributorOrders />} />
+            <Route path="downline" element={<DistributorDownline />} />
+          </Route>
+          
           {/* Shop Pages */}
           <Route path="/shop" element={
             <LayoutWrapper>
@@ -262,39 +284,36 @@ const AppContent: React.FC = () => {
               <Category />
             </LayoutWrapper>
           } />
-
-
-
-          // Add these routes after the shop pages:
-<Route path="/about" element={
-  <LayoutWrapper>
-    <About />
-  </LayoutWrapper>
-} />
-
-<Route path="/faq" element={
-  <LayoutWrapper>
-    <FAQ />
-  </LayoutWrapper>
-} />
-
-<Route path="/blog" element={
-  <LayoutWrapper>
-    <Blog />
-  </LayoutWrapper>
-} />
-
-<Route path="/terms" element={
-  <LayoutWrapper>
-    <Terms />
-  </LayoutWrapper>
-} />
-
-<Route path="/privacy" element={
-  <LayoutWrapper>
-    <Privacy />
-  </LayoutWrapper>
-} />
+          
+          <Route path="/about" element={
+            <LayoutWrapper>
+              <About />
+            </LayoutWrapper>
+          } />
+          
+          <Route path="/faq" element={
+            <LayoutWrapper>
+              <FAQ />
+            </LayoutWrapper>
+          } />
+          
+          <Route path="/blog" element={
+            <LayoutWrapper>
+              <Blog />
+            </LayoutWrapper>
+          } />
+          
+          <Route path="/terms" element={
+            <LayoutWrapper>
+              <Terms />
+            </LayoutWrapper>
+          } />
+          
+          <Route path="/privacy" element={
+            <LayoutWrapper>
+              <Privacy />
+            </LayoutWrapper>
+          } />
           
           {/* Catch all route - 404 */}
           <Route path="*" element={

@@ -1,23 +1,25 @@
-// src/components/distributor/DistributorLayout.tsx
+// src/components/shop/ShopLayout.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   ShoppingBag, 
   Users, 
-  Award, 
+  Package, 
   Settings, 
   LogOut,
   Home,
   Bell,
-  User,
+  Store,
   ChevronDown,
   Menu,
   X,
-  ChevronUp
+  ChevronUp,
+  BarChart,
+  Calendar
 } from 'lucide-react';
 
-const DistributorLayout: React.FC = () => {
+const ShopLayout: React.FC = () => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -25,23 +27,26 @@ const DistributorLayout: React.FC = () => {
   const sidebarRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Mock user data (remove this and use real data from your auth system)
+  // Mock shop user data
   const user = {
-    name: 'John Doe',
-    rank: 'Senior Leader'
+    name: 'Sarah Johnson',
+    role: 'Shop Manager',
+    shop: 'OMA Flowers - Dar es Salaam'
   };
 
-  const navItems = [
-    { path: '/distributor', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
-    { path: '/distributor/orders', label: 'My Orders', icon: <ShoppingBag size={18} /> },
-    { path: '/distributor/downline', label: 'My Downline', icon: <Users size={18} /> },
-    { path: '/distributor/commissions', label: 'Commissions', icon: <Award size={18} /> },
-    { path: '/distributor/settings', label: 'Settings', icon: <Settings size={18} /> },
-  ];
+// src/components/shop/ShopLayout.tsx (updated navItems)
+const navItems = [
+  { path: '/shop', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
+  { path: '/shop/orders', label: 'Orders', icon: <ShoppingBag size={18} /> },
+  { path: '/shop/inventory', label: 'Inventory', icon: <Package size={18} /> },
+  { path: '/shop/customers', label: 'Customers', icon: <Users size={18} /> },
+  { path: '/shop/analytics', label: 'Analytics', icon: <BarChart size={18} /> },
+  { path: '/shop/calendar', label: 'Calendar', icon: <Calendar size={18} /> },
+  { path: '/shop/settings', label: 'Settings', icon: <Settings size={18} /> },
+];
 
   const isActive = (path: string) => location.pathname === path;
 
-  // Check scroll position for sidebar
   useEffect(() => {
     const checkScroll = () => {
       const container = scrollContainerRef.current;
@@ -60,7 +65,6 @@ const DistributorLayout: React.FC = () => {
     }
   }, []);
 
-  // Close mobile menu on route change
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
@@ -81,18 +85,16 @@ const DistributorLayout: React.FC = () => {
   };
 
   const handleLogout = () => {
-    // Handle logout logic here
     window.location.href = '/login';
   };
 
   return (
     <div className="min-h-screen bg-amber-50/30 flex flex-col">
-      {/* Distributor Header */}
+      {/* Shop Header */}
       <header className="bg-white border-b border-amber-200/30 shadow-sm sticky top-0 z-40 flex-shrink-0">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              {/* Mobile Menu Toggle */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="md:hidden p-2 rounded-lg hover:bg-amber-50 transition-colors"
@@ -100,9 +102,9 @@ const DistributorLayout: React.FC = () => {
                 {isMobileMenuOpen ? <X size={22} className="text-gray-600" /> : <Menu size={22} className="text-gray-600" />}
               </button>
 
-              <Link to="/distributor" className="flex items-center gap-2">
-                <span className="text-2xl font-bold text-amber-600">OMA</span>
-                <span className="text-sm text-gray-400 hidden sm:inline">Distributor</span>
+              <Link to="/shop" className="flex items-center gap-2">
+                <Store className="text-amber-600" size={24} />
+                <span className="text-xl font-bold text-amber-600">OMA Shop</span>
               </Link>
             </div>
 
@@ -114,11 +116,11 @@ const DistributorLayout: React.FC = () => {
               
               <div className="flex items-center gap-2 sm:gap-3">
                 <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 font-bold text-sm">
-                  {user?.name?.charAt(0) || 'U'}
+                  {user?.name?.charAt(0) || 'S'}
                 </div>
                 <div className="hidden md:block">
-                  <p className="text-sm font-medium text-gray-800">{user?.name || 'Distributor'}</p>
-                  <p className="text-xs text-amber-500">{user?.rank || 'Senior Leader'}</p>
+                  <p className="text-sm font-medium text-gray-800">{user?.name || 'Shop Manager'}</p>
+                  <p className="text-xs text-amber-500">{user?.role || 'Manager'}</p>
                 </div>
                 <ChevronDown size={16} className="text-gray-400 hidden sm:block" />
               </div>
@@ -128,12 +130,11 @@ const DistributorLayout: React.FC = () => {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar - Desktop */}
+        {/* Sidebar */}
         <aside 
           ref={sidebarRef}
           className="hidden md:flex md:flex-col w-64 bg-white border-r border-amber-200/30 flex-shrink-0 sticky top-16 h-[calc(100vh-64px)]"
         >
-          {/* Scroll Up Button */}
           {showScrollTop && (
             <button
               onClick={scrollToTop}
@@ -144,7 +145,6 @@ const DistributorLayout: React.FC = () => {
             </button>
           )}
 
-          {/* Scrollable Navigation */}
           <div 
             ref={scrollContainerRef}
             className="flex-1 overflow-y-auto py-4 px-3 scrollbar-thin scrollbar-thumb-amber-300/30 scrollbar-track-transparent hover:scrollbar-thumb-amber-400/40"
@@ -184,7 +184,6 @@ const DistributorLayout: React.FC = () => {
             </nav>
           </div>
 
-          {/* Scroll Down Button */}
           {showScrollBottom && (
             <button
               onClick={scrollToBottom}
@@ -195,7 +194,6 @@ const DistributorLayout: React.FC = () => {
             </button>
           )}
 
-          {/* Scroll Progress Indicator */}
           <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-200/30">
             <div 
               className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-300"
@@ -208,7 +206,7 @@ const DistributorLayout: React.FC = () => {
           </div>
         </aside>
 
-        {/* Mobile Sidebar Overlay */}
+        {/* Mobile Sidebar */}
         {isMobileMenuOpen && (
           <div 
             className="fixed inset-0 bg-black/50 z-40 md:hidden"
@@ -216,27 +214,25 @@ const DistributorLayout: React.FC = () => {
           />
         )}
 
-        {/* Mobile Sidebar */}
         <div 
           className={`fixed top-16 left-0 bottom-0 w-72 bg-white border-r border-amber-200/30 z-40 transform transition-transform duration-300 ease-in-out md:hidden ${
             isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
           <div className="h-full flex flex-col">
-            {/* Mobile User Info */}
             <div className="p-4 border-b border-amber-100/30 bg-amber-50/30">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 font-bold">
-                  {user?.name?.charAt(0) || 'U'}
+                  {user?.name?.charAt(0) || 'S'}
                 </div>
                 <div>
-                  <p className="font-medium text-gray-800">{user?.name || 'Distributor'}</p>
-                  <p className="text-xs text-amber-500">{user?.rank || 'Senior Leader'}</p>
+                  <p className="font-medium text-gray-800">{user?.name || 'Shop Manager'}</p>
+                  <p className="text-xs text-amber-500">{user?.role || 'Manager'}</p>
+                  <p className="text-xs text-gray-400">{user?.shop}</p>
                 </div>
               </div>
             </div>
 
-            {/* Mobile Navigation - Scrollable */}
             <div className="flex-1 overflow-y-auto py-4 px-3">
               <nav className="space-y-1">
                 {navItems.map((item) => (
@@ -291,4 +287,4 @@ const DistributorLayout: React.FC = () => {
   );
 };
 
-export default DistributorLayout;
+export default ShopLayout;

@@ -59,12 +59,22 @@ import DistributorLayout from './components/DistributorLayout';
 import DistributorDashboard from './pages/distributor/Dashboard';
 import DistributorOrders from './pages/distributor/Orders';
 import DistributorDownline from './pages/distributor/Downline';
+import DistributorCommissions from './pages/distributor/Commissions';
+import DistributorSettings from './pages/distributor/Settings';
 
 // Auth Context
 import { AuthProvider } from './context/AuthContext';
 import { AdminProvider } from './context/AdminContext';
 
 import { products, services, tabs } from './components/data/data';
+import ShopLayout from './pages/shop/ShopLayout';
+import ShopDashboard from './pages/shop/Dashboard';
+import ShopOrders from './pages/shop/Orders';
+import ShopInventory from './pages/shop/Inventory';
+import ShopCustomers from './pages/shop/Customers';
+import ShopAnalytics from './pages/shop/Analytics';
+import ShopSettings from './pages/shop/Settings';
+import ShopCalendar from './pages/shop/Calendar';
 
 // Component to handle scroll restoration and page tracking
 const ScrollToTop: React.FC = () => {
@@ -216,7 +226,22 @@ const AppContent: React.FC = () => {
             <Route index element={<DistributorDashboard />} />
             <Route path="orders" element={<DistributorOrders />} />
             <Route path="downline" element={<DistributorDownline />} />
+            <Route path="commissions" element={<DistributorCommissions />} />
+            <Route path="settings" element={<DistributorSettings />} />
           </Route>
+
+
+
+
+<Route path="/shop" element={<ShopLayout />}>
+  <Route index element={<ShopDashboard />} />
+  <Route path="orders" element={<ShopOrders />} />
+  <Route path="inventory" element={<ShopInventory />} />
+  <Route path="customers" element={<ShopCustomers />} />
+  <Route path="analytics" element={<ShopAnalytics />} />
+  <Route path="calendar" element={<ShopCalendar />} />
+  <Route path="settings" element={<ShopSettings />} />
+</Route>
           
           {/* Shop Pages */}
           <Route path="/shop" element={

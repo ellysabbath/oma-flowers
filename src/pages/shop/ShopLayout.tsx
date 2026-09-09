@@ -16,7 +16,8 @@ import {
   X,
   ChevronUp,
   BarChart,
-  Calendar
+  Calendar,
+  ShoppingBagIcon
 } from 'lucide-react';
 
 const ShopLayout: React.FC = () => {
@@ -36,13 +37,13 @@ const ShopLayout: React.FC = () => {
 
 // src/components/shop/ShopLayout.tsx (updated navItems)
 const navItems = [
-  { path: '/shop', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
-  { path: '/shop/orders', label: 'Orders', icon: <ShoppingBag size={18} /> },
-  { path: '/shop/inventory', label: 'Inventory', icon: <Package size={18} /> },
-  { path: '/shop/customers', label: 'Customers', icon: <Users size={18} /> },
-  { path: '/shop/analytics', label: 'Analytics', icon: <BarChart size={18} /> },
-  { path: '/shop/calendar', label: 'Calendar', icon: <Calendar size={18} /> },
-  { path: '/shop/settings', label: 'Settings', icon: <Settings size={18} /> },
+  { path: '/shops', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
+  { path: '/shops/orders', label: 'Orders', icon: <ShoppingBagIcon size={18} /> },
+  { path: '/shops/inventory', label: 'Inventory', icon: <Package size={18} /> },
+  { path: '/shops/customers', label: 'Customers', icon: <Users size={18} /> },
+  { path: '/shops/analytics', label: 'Analytics', icon: <BarChart size={18} /> },
+  { path: '/shops/calendar', label: 'Calendar', icon: <Calendar size={18} /> },
+  { path: '/shops/settings', label: 'Settings', icon: <Settings size={18} /> },
 ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -90,7 +91,7 @@ const navItems = [
 
   return (
     <div className="min-h-screen bg-amber-50/30 flex flex-col">
-      {/* Shop Header */}
+      {/* shop Header */}
       <header className="bg-white border-b border-amber-200/30 shadow-sm sticky top-0 z-40 flex-shrink-0">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
@@ -104,7 +105,7 @@ const navItems = [
 
               <Link to="/shop" className="flex items-center gap-2">
                 <Store className="text-amber-600" size={24} />
-                <span className="text-xl font-bold text-amber-600">OMA Shop</span>
+                <span className="text-xl font-bold text-amber-600">OMA shop</span>
               </Link>
             </div>
 
@@ -119,7 +120,7 @@ const navItems = [
                   {user?.name?.charAt(0) || 'S'}
                 </div>
                 <div className="hidden md:block">
-                  <p className="text-sm font-medium text-gray-800">{user?.name || 'Shop Manager'}</p>
+                  <p className="text-sm font-medium text-gray-800">{user?.name || 'shop Manager'}</p>
                   <p className="text-xs text-amber-500">{user?.role || 'Manager'}</p>
                 </div>
                 <ChevronDown size={16} className="text-gray-400 hidden sm:block" />
@@ -226,7 +227,7 @@ const navItems = [
                   {user?.name?.charAt(0) || 'S'}
                 </div>
                 <div>
-                  <p className="font-medium text-gray-800">{user?.name || 'Shop Manager'}</p>
+                  <p className="font-medium text-gray-800">{user?.name || 'shop Manager'}</p>
                   <p className="text-xs text-amber-500">{user?.role || 'Manager'}</p>
                   <p className="text-xs text-gray-400">{user?.shop}</p>
                 </div>

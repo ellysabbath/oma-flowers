@@ -75,6 +75,7 @@ import ShopCustomers from './pages/shop/Customers';
 import ShopAnalytics from './pages/shop/Analytics';
 import ShopSettings from './pages/shop/Settings';
 import ShopCalendar from './pages/shop/Calendar';
+import Profile from './pages/Profile';
 
 // Component to handle scroll restoration and page tracking
 const ScrollToTop: React.FC = () => {
@@ -215,6 +216,7 @@ const AppContent: React.FC = () => {
             <Route path="analytics" element={<Analytics />} />
             <Route path="categories" element={<Categories />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="profile" element={<Profile />} />
           </Route>
           
           {/* Distributor Pages */}
@@ -233,7 +235,7 @@ const AppContent: React.FC = () => {
 
 
 
-<Route path="/shop" element={<ShopLayout />}>
+<Route path="/shops" element={<ShopLayout />}>
   <Route index element={<ShopDashboard />} />
   <Route path="orders" element={<ShopOrders />} />
   <Route path="inventory" element={<ShopInventory />} />

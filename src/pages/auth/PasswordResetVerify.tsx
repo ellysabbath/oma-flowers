@@ -1,6 +1,6 @@
-// src/pages/auth/PasswordResetVerify.tsx
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { authAPI } from '../../api/auth';
 
 const PasswordResetVerify: React.FC = () => {
   const location = useLocation();
@@ -31,6 +31,9 @@ const PasswordResetVerify: React.FC = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
     if (formErrors[name as keyof typeof formErrors]) {
       setFormErrors(prev => ({ ...prev, [name]: '' }));
+    }
+    if (error) {
+      setError(null);
     }
   };
 
@@ -84,15 +87,23 @@ const PasswordResetVerify: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await authAPI.resetPasswordVerify({
+        email: formData.email,
+        code: formData.code,
+        password: formData.password,
+        confirm_password: formData.confirmPassword,
+      });
       setIsSuccess(true);
       setTimeout(() => {
         navigate('/login', { 
           state: { message: 'Password reset successfully! Please sign in with your new password.' } 
         });
       }, 3000);
-    } catch (error) {
-      setError('Failed to reset password. Please try again.');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message ||
+                          'Failed to reset password. Please try again.';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -122,14 +133,10 @@ const PasswordResetVerify: React.FC = () => {
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-2xl">
         <div className="text-center">
           <Link to="/" className="inline-block">
-            <img
-              src="//ueeshop.ly200-cdn.com/u_file/UPAM/UPAM677/2006/photo/d145ca5768.png"
-              alt="BF Suma"
-              className="h-16 mx-auto mb-4"
-            />
+            {/* Logo here */}
           </Link>
-          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 mb-4">
-            <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-amber-100 mb-4">
+            <svg className="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
@@ -155,7 +162,7 @@ const PasswordResetVerify: React.FC = () => {
                 onChange={handleChange}
                 placeholder="Enter your email"
                 disabled={!!emailFromState}
-                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.email ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 ${emailFromState ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.email ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200 ${emailFromState ? 'bg-gray-100 cursor-not-allowed' : ''}`}
               />
             </div>
             {formErrors.email && <p className="text-sm text-red-500 mt-1">{formErrors.email}</p>}
@@ -176,7 +183,7 @@ const PasswordResetVerify: React.FC = () => {
                 onChange={handleChange}
                 placeholder="Enter 6-digit code"
                 maxLength={6}
-                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.code ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200`}
+                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.code ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200`}
               />
             </div>
             {formErrors.code && <p className="text-sm text-red-500 mt-1">{formErrors.code}</p>}
@@ -196,7 +203,7 @@ const PasswordResetVerify: React.FC = () => {
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="Create a strong password"
-                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.password ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200`}
+                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.password ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200`}
               />
               <button
                 type="button"
@@ -232,7 +239,7 @@ const PasswordResetVerify: React.FC = () => {
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 placeholder="Confirm your new password"
-                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200`}
+                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200`}
               />
               <button
                 type="button"
@@ -263,7 +270,7 @@ const PasswordResetVerify: React.FC = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-primary text-white py-3 px-4 rounded-lg font-semibold hover:bg-primary-dark transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-amber-600 hover:to-amber-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
           >
             {isLoading ? (
               <span className="flex items-center justify-center">
@@ -279,7 +286,7 @@ const PasswordResetVerify: React.FC = () => {
           </button>
 
           <div className="text-center">
-            <Link to="/login" className="text-sm text-gray-500 hover:text-primary transition-colors duration-200">
+            <Link to="/login" className="text-sm text-gray-500 hover:text-amber-600 transition-colors duration-200">
               ← Back to Sign In
             </Link>
           </div>

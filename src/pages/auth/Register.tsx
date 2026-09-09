@@ -1,4 +1,3 @@
-// src/pages/auth/Register.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -15,22 +14,87 @@ const countries = [
 
 // Region data
 const regions: Record<string, string[]> = {
-  'TZ': ['Dar es Salaam', 'Arusha', 'Kilimanjaro', 'Mwanza', 'Tanga', 'Morogoro', 'Dodoma'],
-  'KE': ['Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret'],
-  'UG': ['Kampala', 'Entebbe', 'Jinja', 'Gulu', 'Mbale'],
-  'NG': ['Lagos', 'Abuja', 'Kano', 'Ibadan', 'Port Harcourt'],
-  'ZA': ['Johannesburg', 'Cape Town', 'Durban', 'Pretoria'],
-  'GH': ['Accra', 'Kumasi', 'Tamale', 'Tema'],
+  'TZ': ['Dar es Salaam', 'Arusha', 'Kilimanjaro', 'Mwanza', 'Tanga', 'Morogoro', 'Dodoma', 'Mbeya', 'Zanzibar'],
+  'KE': ['Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret', 'Thika', 'Malindi'],
+  'UG': ['Kampala', 'Entebbe', 'Jinja', 'Gulu', 'Mbale', 'Mbarara', 'Fort Portal'],
+  'NG': ['Lagos', 'Abuja', 'Kano', 'Ibadan', 'Port Harcourt', 'Kaduna', 'Enugu'],
+  'ZA': ['Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape', 'Free State', 'Limpopo'],
+  'GH': ['Greater Accra', 'Ashanti', 'Central', 'Western', 'Eastern', 'Volta'],
 };
 
-// City data
+// City data - Expanded with more cities
 const cities: Record<string, string[]> = {
-  'Dar es Salaam': ['Kinondoni', 'Ilala', 'Temeke', 'Ubungo', 'Kigamboni'],
-  'Arusha': ['Arusha City', 'Ngorongoro', 'Meru', 'Karatu'],
-  'Nairobi': ['Nairobi CBD', 'Westlands', 'Karen', 'Langata', 'Kasarani'],
-  'Kampala': ['Kampala Central', 'Nakasero', 'Kololo', 'Bukoto'],
-  'Lagos': ['Lagos Island', 'Victoria Island', 'Ikoyi', 'Surulere', 'Yaba'],
-  'Johannesburg': ['Johannesburg CBD', 'Sandton', 'Rosebank', 'Bryanston'],
+  // Tanzania - Dar es Salaam
+  'Dar es Salaam': ['Kinondoni', 'Ilala', 'Temeke', 'Ubungo', 'Kigamboni', 'Sinza', 'Mikocheni', 'Mbezi'],
+  // Tanzania - Arusha
+  'Arusha': ['Arusha City', 'Ngorongoro', 'Meru', 'Karatu', 'Monduli', 'Longido'],
+  // Tanzania - Kilimanjaro
+  'Kilimanjaro': ['Moshi', 'Moshi Municipal', 'Same', 'Mwanga', 'Rombo', 'Hai'],
+  // Tanzania - Mwanza
+  'Mwanza': ['Mwanza City', 'Ilemela', 'Nyamagana', 'Sengerema', 'Misungwi', 'Magu'],
+  // Tanzania - Tanga
+  'Tanga': ['Tanga City', 'Pangani', 'Muheza', 'Korogwe', 'Lushoto', 'Handeni'],
+  // Tanzania - Morogoro
+  'Morogoro': ['Morogoro Municipal', 'Kilosa', 'Mvomero', 'Gairo', 'Kilombero', 'Ulanga'],
+  // Tanzania - Dodoma
+  'Dodoma': ['Dodoma City', 'Mpwapwa', 'Kongwa', 'Chamwino', 'Chemba', 'Bahi'],
+  // Tanzania - Mbeya
+  'Mbeya': ['Mbeya City', 'Kyela', 'Rungwe', 'Mbozi', 'Chunya', 'Tukuyu'],
+  // Tanzania - Zanzibar
+  'Zanzibar': ['Zanzibar City', 'Stone Town', 'Ng\'ambo', 'Michenzani', 'Jambiani', 'Paje', 'Nungwi'],
+  
+  // Kenya - Nairobi
+  'Nairobi': ['Nairobi CBD', 'Westlands', 'Karen', 'Langata', 'Kasarani', 'Embakasi', 'Dagoretti', 'Kibra'],
+  // Kenya - Mombasa
+  'Mombasa': ['Mombasa Island', 'Kisauni', 'Likoni', 'Nyali', 'Changamwe', 'Jomvu', 'Mvita'],
+  // Kenya - Kisumu
+  'Kisumu': ['Kisumu City', 'Kisumu East', 'Kisumu West', 'Kisumu Central', 'Nyando'],
+  // Kenya - Nakuru
+  'Nakuru': ['Nakuru Town', 'Nakuru East', 'Nakuru West', 'Naivasha', 'Gilgil'],
+  // Kenya - Eldoret
+  'Eldoret': ['Eldoret City', 'Kapseret', 'Turbo', 'Soy', 'Moiben'],
+  
+  // Uganda - Kampala
+  'Kampala': ['Kampala Central', 'Nakasero', 'Kololo', 'Bukoto', 'Naguru', 'Muyenga', 'Lubaga', 'Makindye'],
+  // Uganda - Entebbe
+  'Entebbe': ['Entebbe Town', 'Kigungu', 'Katabi', 'Nakiwogo', 'Bugonga'],
+  // Uganda - Jinja
+  'Jinja': ['Jinja City', 'Jinja Central', 'Njeru', 'Mpumudde', 'Buwenge'],
+  // Uganda - Gulu
+  'Gulu': ['Gulu City', 'Layibi', 'Pece', 'Bardege', 'Gulu East'],
+  // Uganda - Mbale
+  'Mbale': ['Mbale City', 'Namanyonyi', 'Bungokho', 'Mbale Central'],
+  
+  // Nigeria - Lagos
+  'Lagos': ['Lagos Island', 'Victoria Island', 'Ikoyi', 'Surulere', 'Yaba', 'Ikeja', 'Lekki', 'Badagry'],
+  // Nigeria - Abuja
+  'Abuja': ['Abuja City Centre', 'Maitama', 'Wuse', 'Garki', 'Asokoro', 'Gwarinpa', 'Kubwa'],
+  // Nigeria - Kano
+  'Kano': ['Kano City', 'Nassarawa', 'Fagge', 'Dala', 'Gwale', 'Tarauni'],
+  // Nigeria - Ibadan
+  'Ibadan': ['Ibadan North', 'Ibadan South', 'Ibadan East', 'Ibadan West', 'Ibadan North East'],
+  // Nigeria - Port Harcourt
+  'Port Harcourt': ['Port Harcourt City', 'Rumuokwurushi', 'Eliozu', 'Mile 1', 'Diobu'],
+  
+  // South Africa - Gauteng (Johannesburg)
+  'Gauteng': ['Johannesburg CBD', 'Sandton', 'Rosebank', 'Bryanston', 'Midrand', 'Centurion', 'Pretoria'],
+  // South Africa - Western Cape (Cape Town)
+  'Western Cape': ['Cape Town CBD', 'Stellenbosch', 'Paarl', 'Somerset West', 'Bellville', 'Mitchells Plain'],
+  // South Africa - KwaZulu-Natal (Durban)
+  'KwaZulu-Natal': ['Durban CBD', 'Umhlanga', 'Pietermaritzburg', 'Richards Bay', 'Newcastle'],
+  // South Africa - Eastern Cape
+  'Eastern Cape': ['Port Elizabeth', 'East London', 'Mthatha', 'Grahamstown', 'King William\'s Town'],
+  
+  // Ghana - Greater Accra
+  'Greater Accra': ['Accra CBD', 'Osu', 'Labone', 'East Legon', 'Tema', 'Ashaiman', 'Madina', 'Adenta'],
+  // Ghana - Ashanti
+  'Ashanti': ['Kumasi', 'Obuasi', 'Tafo', 'Ejisu', 'Konongo', 'Mampong'],
+  // Ghana - Central
+  'Central': ['Cape Coast', 'Elmina', 'Kasoa', 'Winneba', 'Mankessim'],
+  // Ghana - Western
+  'Western': ['Sekondi-Takoradi', 'Tarkwa', 'Prestea', 'Shama', 'Ahanta West'],
+  // Ghana - Eastern
+  'Eastern': ['Koforidua', 'Nsawam', 'Akwatia', 'Aburi', 'Somanya'],
 };
 
 const Register: React.FC = () => {
@@ -42,6 +106,7 @@ const Register: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [availableRegions, setAvailableRegions] = useState<string[]>([]);
   const [availableCities, setAvailableCities] = useState<string[]>([]);
+  const [isCustomCity, setIsCustomCity] = useState(false);
   const [profilePicturePreview, setProfilePicturePreview] = useState<string | null>(null);
   const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -53,6 +118,7 @@ const Register: React.FC = () => {
     phone: '',
     region: '',
     city: '',
+    customCity: '',
     password: '',
     confirmPassword: '',
     agreeTerms: false,
@@ -65,6 +131,7 @@ const Register: React.FC = () => {
     phone: '',
     region: '',
     city: '',
+    customCity: '',
     password: '',
     confirmPassword: '',
     agreeTerms: '',
@@ -75,20 +142,30 @@ const Register: React.FC = () => {
   useEffect(() => {
     if (formData.country && regions[formData.country]) {
       setAvailableRegions(regions[formData.country]);
-      setFormData(prev => ({ ...prev, region: '', city: '' }));
+      setFormData(prev => ({ ...prev, region: '', city: '', customCity: '' }));
       setAvailableCities([]);
+      setIsCustomCity(false);
     } else {
       setAvailableRegions([]);
+      setAvailableCities([]);
     }
   }, [formData.country]);
 
   // Update cities when region changes
   useEffect(() => {
     if (formData.region && cities[formData.region]) {
-      setAvailableCities(cities[formData.region]);
-      setFormData(prev => ({ ...prev, city: '' }));
+      const cityList = cities[formData.region];
+      setAvailableCities(cityList);
+      setFormData(prev => ({ ...prev, city: '', customCity: '' }));
+      setIsCustomCity(false);
+    } else if (formData.region) {
+      // Region exists but no cities predefined
+      setAvailableCities([]);
+      setIsCustomCity(true);
+      setFormData(prev => ({ ...prev, city: '', customCity: '' }));
     } else {
       setAvailableCities([]);
+      setIsCustomCity(false);
     }
   }, [formData.region]);
 
@@ -104,6 +181,9 @@ const Register: React.FC = () => {
     // Clear error when user types
     if (formErrors[name as keyof typeof formErrors]) {
       setFormErrors(prev => ({ ...prev, [name]: '' }));
+    }
+    if (registerError) {
+      setRegisterError(null);
     }
   };
 
@@ -152,6 +232,7 @@ const Register: React.FC = () => {
       phone: '',
       region: '',
       city: '',
+      customCity: '',
       password: '',
       confirmPassword: '',
       agreeTerms: '',
@@ -192,9 +273,17 @@ const Register: React.FC = () => {
       isValid = false;
     }
 
-    if (!formData.city) {
-      errors.city = 'Please select your city';
-      isValid = false;
+    // City validation - check if using dropdown or custom input
+    if (isCustomCity) {
+      if (!formData.customCity.trim()) {
+        errors.customCity = 'Please enter your city';
+        isValid = false;
+      }
+    } else {
+      if (!formData.city) {
+        errors.city = 'Please select your city';
+        isValid = false;
+      }
     }
 
     if (!formData.password) {
@@ -242,15 +331,35 @@ const Register: React.FC = () => {
         });
       }
 
+      // Split full name into first and last name
+      const nameParts = formData.fullName.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      // Get the final city value
+      const finalCity = isCustomCity ? formData.customCity.trim() : formData.city;
+
       // Register with profile picture
       await registerUser({
-        ...formData,
+        email: formData.email,
+        username: formData.email.split('@')[0],
+        first_name: firstName,
+        last_name: lastName,
+        phone: formData.phone,
+        country: formData.country,
+        region: formData.region,
+        city: finalCity,
         profile_picture: profilePictureBase64 || undefined,
+        password: formData.password,
+        password2: formData.confirmPassword,
       });
       
       navigate('/account-verify', { state: { email: formData.email } });
-    } catch (error) {
-      setRegisterError('Registration failed. Please try again.');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message ||
+                          'Registration failed. Please try again.';
+      setRegisterError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -261,7 +370,7 @@ const Register: React.FC = () => {
       <div className="max-w-2xl w-full space-y-8 bg-white p-8 rounded-2xl shadow-2xl">
         <div className="text-center">
           <Link to="/" className="inline-block">
-          
+            {/* Logo here */}
           </Link>
           <h2 className="text-3xl font-bold text-gray-900">Create Account</h2>
           <p className="mt-2 text-sm text-gray-600">Join us and start your journey</p>
@@ -276,7 +385,7 @@ const Register: React.FC = () => {
             <div className="flex items-center gap-6">
               <div className="relative">
                 <div 
-                  className="w-24 h-24 rounded-full overflow-hidden bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-primary transition-colors duration-200 group"
+                  className="w-24 h-24 rounded-full overflow-hidden bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-amber-500 transition-colors duration-200 group"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   {profilePicturePreview ? (
@@ -286,7 +395,7 @@ const Register: React.FC = () => {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="text-center text-gray-400 group-hover:text-primary transition-colors duration-200">
+                    <div className="text-center text-gray-400 group-hover:text-amber-500 transition-colors duration-200">
                       <svg className="w-8 h-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -340,7 +449,7 @@ const Register: React.FC = () => {
                 value={formData.fullName}
                 onChange={handleChange}
                 placeholder="John Doe"
-                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.fullName ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200`}
+                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.fullName ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200`}
               />
             </div>
             {formErrors.fullName && <p className="text-sm text-red-500 mt-1">{formErrors.fullName}</p>}
@@ -361,7 +470,7 @@ const Register: React.FC = () => {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="john@example.com"
-                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.email ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200`}
+                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.email ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200`}
               />
             </div>
             {formErrors.email && <p className="text-sm text-red-500 mt-1">{formErrors.email}</p>}
@@ -380,7 +489,7 @@ const Register: React.FC = () => {
                 name="country"
                 value={formData.country}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.country ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 appearance-none bg-white`}
+                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.country ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200 appearance-none bg-white`}
               >
                 <option value="">Select your country</option>
                 {countries.map((country) => (
@@ -413,7 +522,7 @@ const Register: React.FC = () => {
                 value={formData.phone}
                 onChange={handleChange}
                 placeholder="+255 712 345 678"
-                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.phone ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200`}
+                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.phone ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200`}
               />
             </div>
             {formErrors.phone && <p className="text-sm text-red-500 mt-1">{formErrors.phone}</p>}
@@ -433,7 +542,7 @@ const Register: React.FC = () => {
                 value={formData.region}
                 onChange={handleChange}
                 disabled={!formData.country}
-                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.region ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 appearance-none bg-white ${!formData.country ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.region ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200 appearance-none bg-white ${!formData.country ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <option value="">{formData.country ? 'Select your region' : 'Please select a country first'}</option>
                 {availableRegions.map((region) => (
@@ -449,34 +558,77 @@ const Register: React.FC = () => {
             {formErrors.region && <p className="text-sm text-red-500 mt-1">{formErrors.region}</p>}
           </div>
 
-          {/* City */}
+          {/* City - Dynamic Dropdown or Custom Input */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-            <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
+            
+            {formData.region && availableCities.length > 0 ? (
+              // Show dropdown when cities are available
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                  </svg>
+                </div>
+                <select
+                  name="city"
+                  value={formData.city}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.city ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200 appearance-none bg-white`}
+                >
+                  <option value="">Select your city</option>
+                  {availableCities.map((city) => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                  <option value="__other__">Other (Enter manually)</option>
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
               </div>
-              <select
-                name="city"
-                value={formData.city}
-                onChange={handleChange}
-                disabled={!formData.region}
-                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.city ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 appearance-none bg-white ${!formData.region ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <option value="">{formData.region ? 'Select your city' : 'Please select a region first'}</option>
-                {availableCities.map((city) => (
-                  <option key={city} value={city}>{city}</option>
-                ))}
-              </select>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+            ) : formData.region && availableCities.length === 0 ? (
+              // Show custom input when no cities are predefined for this region
+              <div>
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    name="customCity"
+                    value={formData.customCity}
+                    onChange={handleChange}
+                    placeholder="Enter your city"
+                    className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.customCity ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200`}
+                  />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  No predefined cities for this region. Please enter your city manually.
+                </p>
               </div>
-            </div>
+            ) : (
+              // Show disabled state when no region is selected
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                  </svg>
+                </div>
+                <select
+                  disabled
+                  className="w-full px-4 py-3 pl-10 rounded-lg border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed"
+                >
+                  <option value="">Please select a region first</option>
+                </select>
+              </div>
+            )}
+            
             {formErrors.city && <p className="text-sm text-red-500 mt-1">{formErrors.city}</p>}
+            {formErrors.customCity && <p className="text-sm text-red-500 mt-1">{formErrors.customCity}</p>}
           </div>
 
           {/* Password */}
@@ -494,7 +646,7 @@ const Register: React.FC = () => {
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="Create a strong password"
-                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.password ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200`}
+                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.password ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200`}
               />
               <button
                 type="button"
@@ -531,7 +683,7 @@ const Register: React.FC = () => {
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 placeholder="Confirm your password"
-                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200`}
+                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200`}
               />
               <button
                 type="button"
@@ -560,13 +712,13 @@ const Register: React.FC = () => {
               name="agreeTerms"
               checked={formData.agreeTerms}
               onChange={handleChange}
-              className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded cursor-pointer"
+              className="h-4 w-4 text-amber-500 focus:ring-amber-500 border-gray-300 rounded cursor-pointer"
             />
             <label className="ml-2 text-sm text-gray-600">
               I agree to the{' '}
-              <Link to="/terms" className="text-primary hover:text-primary-dark">Terms of Service</Link>
+              <Link to="/terms" className="text-amber-600 hover:text-amber-700">Terms of Service</Link>
               {' '}and{' '}
-              <Link to="/privacy" className="text-primary hover:text-primary-dark">Privacy Policy</Link>
+              <Link to="/privacy" className="text-amber-600 hover:text-amber-700">Privacy Policy</Link>
             </label>
           </div>
           {formErrors.agreeTerms && <p className="text-sm text-red-500">{formErrors.agreeTerms}</p>}
@@ -580,7 +732,7 @@ const Register: React.FC = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-primary text-white py-3 px-4 rounded-lg font-semibold hover:bg-primary-dark transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-amber-600 hover:to-amber-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
           >
             {isLoading ? (
               <span className="flex items-center justify-center">
@@ -598,7 +750,7 @@ const Register: React.FC = () => {
           <div className="text-center">
             <p className="text-sm text-gray-600">
               Already have an account?{' '}
-              <Link to="/login" className="text-primary hover:text-primary-dark font-semibold transition-colors duration-200">
+              <Link to="/login" className="text-amber-600 hover:text-amber-700 font-semibold transition-colors duration-200">
                 Sign In
               </Link>
             </p>

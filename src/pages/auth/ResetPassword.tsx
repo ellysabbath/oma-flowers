@@ -1,6 +1,6 @@
-// src/pages/auth/ResetPassword.tsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { authAPI } from '../../api/auth';
 
 const ResetPassword: React.FC = () => {
   const navigate = useNavigate();
@@ -29,13 +29,16 @@ const ResetPassword: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await authAPI.resetPassword(email);
       setIsSuccess(true);
       setTimeout(() => {
         navigate('/password-reset-verify', { state: { email } });
       }, 2000);
-    } catch (error) {
-      setError('Failed to send reset link. Please try again.');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message ||
+                          'Failed to send reset link. Please try again.';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -54,7 +57,7 @@ const ResetPassword: React.FC = () => {
           <p className="text-gray-600 mb-4">We've sent a verification code to your email address.</p>
           <p className="text-sm text-gray-500">Redirecting to verification...</p>
           <div className="mt-4 flex justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500"></div>
           </div>
         </div>
       </div>
@@ -66,11 +69,7 @@ const ResetPassword: React.FC = () => {
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-2xl">
         <div className="text-center">
           <Link to="/" className="inline-block">
-            <img
-              src="//ueeshop.ly200-cdn.com/u_file/UPAM/UPAM677/2006/photo/d145ca5768.png"
-              alt="BF Suma"
-              className="h-16 mx-auto mb-4"
-            />
+            {/* Logo here */}
           </Link>
           <h2 className="text-3xl font-bold text-gray-900">Reset Password</h2>
           <p className="mt-2 text-sm text-gray-600">
@@ -93,9 +92,10 @@ const ResetPassword: React.FC = () => {
                 onChange={(e) => {
                   setEmail(e.target.value);
                   if (emailError) setEmailError('');
+                  if (error) setError(null);
                 }}
                 placeholder="Enter your email"
-                className={`w-full px-4 py-3 pl-10 rounded-lg border ${emailError ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200`}
+                className={`w-full px-4 py-3 pl-10 rounded-lg border ${emailError ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200`}
               />
             </div>
             {emailError && <p className="text-sm text-red-500 mt-1">{emailError}</p>}
@@ -110,7 +110,7 @@ const ResetPassword: React.FC = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-primary text-white py-3 px-4 rounded-lg font-semibold hover:bg-primary-dark transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-amber-600 hover:to-amber-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
           >
             {isLoading ? (
               <span className="flex items-center justify-center">
@@ -126,7 +126,7 @@ const ResetPassword: React.FC = () => {
           </button>
 
           <div className="text-center">
-            <Link to="/login" className="text-sm text-primary hover:text-primary-dark font-medium transition-colors duration-200">
+            <Link to="/login" className="text-sm text-amber-600 hover:text-amber-700 font-medium transition-colors duration-200">
               ← Back to Sign In
             </Link>
           </div>

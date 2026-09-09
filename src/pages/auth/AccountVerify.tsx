@@ -1,6 +1,6 @@
-// src/pages/auth/AccountVerify.tsx
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { authAPI } from '../../api/auth';
 
 const AccountVerify: React.FC = () => {
   const location = useLocation();
@@ -8,6 +8,7 @@ const AccountVerify: React.FC = () => {
   const emailFromState = location.state?.email || '';
   const [isLoading, setIsLoading] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [verifySuccess, setVerifySuccess] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
   const [resendCountdown, setResendCountdown] = useState(0);
   const [isResending, setIsResending] = useState(false);
@@ -31,6 +32,12 @@ const AccountVerify: React.FC = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
     if (formErrors[name as keyof typeof formErrors]) {
       setFormErrors(prev => ({ ...prev, [name]: '' }));
+    }
+    if (verifyError) {
+      setVerifyError(null);
+    }
+    if (verifySuccess) {
+      setVerifySuccess(null);
     }
   };
 
@@ -64,25 +71,44 @@ const AccountVerify: React.FC = () => {
 
     setIsLoading(true);
     setVerifyError(null);
+    setVerifySuccess(null);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const response = await authAPI.verifyEmail(formData.email, formData.code);
+      setVerifySuccess(response.message || 'Email verified successfully!');
       setIsSuccess(true);
       setTimeout(() => {
         navigate('/login', { 
           state: { message: 'Account verified successfully! Please sign in.' } 
         });
       }, 2000);
-    } catch (error) {
-      setVerifyError('Invalid verification code. Please try again.');
+    } catch (error: any) {
+      console.error('Verification error:', error);
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message ||
+                          'Invalid verification code. Please try again.';
+      setVerifyError(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleResendCode = async () => {
+    if (!formData.email) {
+      setFormErrors(prev => ({ ...prev, email: 'Please enter your email address' }));
+      return;
+    }
+
+    if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      setFormErrors(prev => ({ ...prev, email: 'Please enter a valid email address' }));
+      return;
+    }
+
     setIsResending(true);
+    setVerifyError(null);
+    setVerifySuccess(null);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await authAPI.resendVerification(formData.email);
+      setVerifySuccess(response.message || 'New verification code sent!');
       setResendCountdown(60);
       const interval = setInterval(() => {
         setResendCountdown((prev) => {
@@ -93,8 +119,12 @@ const AccountVerify: React.FC = () => {
           return prev - 1;
         });
       }, 1000);
-    } catch (error) {
-      setVerifyError('Failed to resend code. Please try again.');
+    } catch (error: any) {
+      console.error('Resend error:', error);
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message ||
+                          'Failed to resend code. Please try again.';
+      setVerifyError(errorMessage);
     } finally {
       setIsResending(false);
     }
@@ -110,7 +140,7 @@ const AccountVerify: React.FC = () => {
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Verified!</h2>
-          <p className="text-gray-600 mb-6">Your account has been successfully verified.</p>
+          <p className="text-gray-600 mb-6">{verifySuccess || 'Your account has been successfully verified.'}</p>
           <div className="animate-pulse">
             <p className="text-sm text-gray-500">Redirecting to sign in...</p>
           </div>
@@ -124,14 +154,10 @@ const AccountVerify: React.FC = () => {
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-2xl">
         <div className="text-center">
           <Link to="/" className="inline-block">
-            <img
-              src="//ueeshop.ly200-cdn.com/u_file/UPAM/UPAM677/2006/photo/d145ca5768.png"
-              alt="BF Suma"
-              className="h-16 mx-auto mb-4"
-            />
+            {/* Logo here */}
           </Link>
-          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 mb-4">
-            <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-amber-100 mb-4">
+            <svg className="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
           </div>
@@ -139,7 +165,24 @@ const AccountVerify: React.FC = () => {
           <p className="mt-2 text-sm text-gray-600">
             Enter the 6-digit verification code sent to your email
           </p>
+          {formData.email && (
+            <p className="mt-1 text-sm text-amber-600">
+              Code sent to: {formData.email}
+            </p>
+          )}
         </div>
+
+        {verifySuccess && (
+          <div className="bg-green-50 border border-green-200 text-green-600 p-3 rounded-lg text-sm">
+            {verifySuccess}
+          </div>
+        )}
+
+        {verifyError && (
+          <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-lg text-sm">
+            {verifyError}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
@@ -157,7 +200,7 @@ const AccountVerify: React.FC = () => {
                 onChange={handleChange}
                 placeholder="Enter your email"
                 disabled={!!emailFromState}
-                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.email ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 ${emailFromState ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.email ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200 ${emailFromState ? 'bg-gray-100 cursor-not-allowed' : ''}`}
               />
             </div>
             {formErrors.email && <p className="text-sm text-red-500 mt-1">{formErrors.email}</p>}
@@ -178,22 +221,16 @@ const AccountVerify: React.FC = () => {
                 onChange={handleChange}
                 placeholder="Enter 6-digit code"
                 maxLength={6}
-                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.code ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200`}
+                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.code ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200`}
               />
             </div>
             {formErrors.code && <p className="text-sm text-red-500 mt-1">{formErrors.code}</p>}
           </div>
 
-          {verifyError && (
-            <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-lg text-sm">
-              {verifyError}
-            </div>
-          )}
-
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-primary text-white py-3 px-4 rounded-lg font-semibold hover:bg-primary-dark transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-amber-600 hover:to-amber-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
           >
             {isLoading ? (
               <span className="flex items-center justify-center">
@@ -214,8 +251,8 @@ const AccountVerify: React.FC = () => {
               <button
                 type="button"
                 onClick={handleResendCode}
-                disabled={resendCountdown > 0 || isResending}
-                className="text-primary hover:text-primary-dark font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={resendCountdown > 0 || isResending || !formData.email}
+                className="text-amber-600 hover:text-amber-700 font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isResending ? 'Sending...' : resendCountdown > 0 ? `Resend (${resendCountdown}s)` : 'Resend Code'}
               </button>
@@ -223,7 +260,7 @@ const AccountVerify: React.FC = () => {
           </div>
 
           <div className="text-center">
-            <Link to="/login" className="text-sm text-gray-500 hover:text-primary transition-colors duration-200">
+            <Link to="/login" className="text-sm text-gray-500 hover:text-amber-600 transition-colors duration-200">
               ← Back to Sign In
             </Link>
           </div>

@@ -1,4 +1,3 @@
-// src/pages/auth/Login.tsx
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -56,6 +55,10 @@ const Login: React.FC = () => {
     if (formErrors[name as keyof typeof formErrors]) {
       setFormErrors(prev => ({ ...prev, [name]: '' }));
     }
+    // Clear login error when user types
+    if (loginError) {
+      setLoginError(null);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -66,9 +69,22 @@ const Login: React.FC = () => {
     setLoginError(null);
     try {
       await login(formData);
-      navigate(from, { replace: true });
-    } catch (error) {
-      setLoginError('Invalid email or password. Please try again.');
+      
+      // Redirect based on user type
+      const userType = localStorage.getItem('user_type');
+      if (userType === 'admin') {
+        navigate('/admin/dashboard', { replace: true });
+      } else if (userType === 'distributor') {
+        navigate('/distributor/dashboard', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
+    } catch (error: any) {
+      // Handle specific error messages from API
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message ||
+                          'Invalid email or password. Please try again.';
+      setLoginError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -79,7 +95,7 @@ const Login: React.FC = () => {
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-2xl">
         <div className="text-center">
           <Link to="/" className="inline-block">
-          
+            {/* Logo here */}
           </Link>
           <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
           <p className="mt-2 text-sm text-gray-600">
@@ -104,7 +120,7 @@ const Login: React.FC = () => {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="Enter your email"
-                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.email ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary'} focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200`}
+                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.email ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-amber-500'} focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200`}
               />
             </div>
             {formErrors.email && (
@@ -128,7 +144,7 @@ const Login: React.FC = () => {
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="Enter your password"
-                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.password ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary'} focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200`}
+                className={`w-full px-4 py-3 pl-10 rounded-lg border ${formErrors.password ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-amber-500'} focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200`}
               />
               <button
                 type="button"
@@ -159,13 +175,13 @@ const Login: React.FC = () => {
                 name="rememberMe"
                 checked={formData.rememberMe}
                 onChange={handleChange}
-                className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded cursor-pointer"
+                className="h-4 w-4 text-amber-500 focus:ring-amber-500 border-gray-300 rounded cursor-pointer"
               />
               <span className="ml-2 text-sm text-gray-600">Remember me</span>
             </label>
             <Link
               to="/reset-password"
-              className="text-sm text-primary hover:text-primary-dark transition-colors duration-200 font-medium"
+              className="text-sm text-amber-600 hover:text-amber-700 transition-colors duration-200 font-medium"
             >
               Forgot password?
             </Link>
@@ -180,7 +196,7 @@ const Login: React.FC = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-primary text-white py-3 px-4 rounded-lg font-semibold hover:bg-primary-dark transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-amber-600 hover:to-amber-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
           >
             {isLoading ? (
               <span className="flex items-center justify-center">
@@ -200,39 +216,13 @@ const Login: React.FC = () => {
               Don't have an account?{' '}
               <Link
                 to="/register"
-                className="text-primary hover:text-primary-dark font-semibold transition-colors duration-200"
+                className="text-amber-600 hover:text-amber-700 font-semibold transition-colors duration-200"
               >
                 Sign Up
               </Link>
             </p>
           </div>
         </form>
-
-        {/* Social Login */}
-        <div className="mt-6">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Or continue with</span>
-            </div>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <button className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
-              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                <path fill="#4267B2" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-              </svg>
-              Facebook
-            </button>
-            <button className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
-              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                <path fill="#DB4437" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.03-2.682-.103-.253-.447-1.27.098-2.646 0 0 .84-.269 2.75 1.025.8-.223 1.65-.334 2.5-.334.85 0 1.7.111 2.5.334 1.91-1.294 2.75-1.025 2.75-1.025.545 1.376.201 2.393.099 2.646.64.698 1.03 1.591 1.03 2.682 0 3.841-2.337 4.687-4.565 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.161 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>
-              </svg>
-              Google
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );

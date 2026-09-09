@@ -1,20 +1,49 @@
-// src/pages/admin/Dashboard.tsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Users, DollarSign, Award, Store, TrendingUp, TrendingDown } from 'lucide-react';
-
-// Sample data
-const distributors = [
-  { id: 1, name: 'John Doe', rank: 'Royal Crown Director', pbv: 350, cgv: 184000, status: 'Active' },
-  { id: 2, name: 'Sarah Smith', rank: 'Crown Director', pbv: 280, cgv: 120000, status: 'Active' },
-  { id: 3, name: 'Mike Johnson', rank: 'Director', pbv: 220, cgv: 60000, status: 'Active' },
-];
+import { useAuth } from '../../hooks/useAuth';
+import { useApi } from '../../hooks/useApi';
+import { distributorAPI } from '../../api/distributors';
+import { orderAPI } from '../../api/orders';
+import type { Distributor } from '../../types';
 
 const Dashboard: React.FC = () => {
-  const totalDistributors = distributors.length;
-  const totalCommissions = 504250;
-  const totalBonuses = 450000;
-  const totalAwards = 6;
-  const totalShops = 5;
+  const { user, isAdmin } = useAuth();
+  
+  const {
+    data: distributors,
+    loading: distributorsLoading,
+    execute: fetchDistributors,
+  } = useApi<Distributor[]>();
+
+  const {
+    data: orders,
+    loading: ordersLoading,
+    execute: fetchOrders,
+  } = useApi<any>();
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchDistributors(() => distributorAPI.getAll().then(res => res.results));
+      fetchOrders(() => orderAPI.getAll().then(res => res.results));
+    }
+  }, [isAdmin]);
+
+  // Calculate stats
+  const totalDistributors = distributors?.length || 0;
+  const totalCommissions = 504250; // Will come from API
+  const totalBonuses = 450000; // Will come from API
+  const totalAwards = 6; // Will come from API
+  const totalShops = 5; // Will come from API
+
+  if (distributorsLoading || ordersLoading) {
+    return (
+      <div className="p-4 md:p-6 space-y-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-amber-500 border-t-transparent"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -26,7 +55,7 @@ const Dashboard: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200/30">
-            July 2026
+            {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
           </span>
         </div>
       </div>
@@ -99,15 +128,15 @@ const Dashboard: React.FC = () => {
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-amber-200/30 p-4">
           <h3 className="font-semibold text-gray-800 mb-4">Top Distributors</h3>
           <div className="space-y-3">
-            {distributors.map((d) => (
+            {distributors?.slice(0, 3).map((d) => (
               <div key={d.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-amber-50/50 transition-colors border-b border-amber-100/30 last:border-0">
                 <div>
-                  <p className="text-sm font-medium text-gray-700">{d.name}</p>
+                  <p className="text-sm font-medium text-gray-700">{d.full_name}</p>
                   <p className="text-xs text-gray-400">{d.rank} • {d.pbv} PBV</p>
                 </div>
                 <div className="text-right">
                   <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                    {d.status}
+                    Active
                   </span>
                   <p className="text-xs text-gray-400 mt-1">CGV: {d.cgv.toLocaleString()}</p>
                 </div>
@@ -125,7 +154,7 @@ const Dashboard: React.FC = () => {
             </div>
             <div className="flex items-center justify-between p-2.5 rounded-lg bg-green-50/50">
               <span className="text-sm text-gray-600">Total Shops</span>
-              <span className="font-bold text-green-700">{totalShops}</span>
+              <span className="font-bold text-green-700">5</span>
             </div>
             <div className="flex items-center justify-between p-2.5 rounded-lg bg-purple-50/50">
               <span className="text-sm text-gray-600">Products</span>
@@ -133,7 +162,7 @@ const Dashboard: React.FC = () => {
             </div>
             <div className="flex items-center justify-between p-2.5 rounded-lg bg-rose-50/50">
               <span className="text-sm text-gray-600">Awards Given</span>
-              <span className="font-bold text-rose-700">{totalAwards}</span>
+              <span className="font-bold text-rose-700">6</span>
             </div>
           </div>
         </div>

@@ -1,318 +1,130 @@
-// src/context/AuthContext.tsx
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { LoginCredentials, RegisterData, User, UpdateProfileData } from '../types/auth';
+import React, { createContext, useState, useContext, useEffect, type ReactNode } from 'react';
+import { authAPI } from '../api/auth';
+import type { User, Distributor, LoginCredentials, RegisterData } from '../types';
 
 interface AuthContextType {
   user: User | null;
-  loading: boolean;
+  distributor: Distributor | null;
+  userType: string | null;
+  isLoading: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  updateUser: (user: User) => void;
   isAuthenticated: boolean;
-  updateUser: (userData: Partial<User>) => void;
-  updateProfile: (data: UpdateProfileData) => Promise<void>;
-  uploadProfilePicture: (file: File) => Promise<string>;
-  resendVerification: (email: string) => Promise<void>;
-  verifyAccount: (email: string, code: string) => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-  confirmPasswordReset: (email: string, code: string, password: string) => Promise<void>;
-  getProfilePictureUrl: (avatar?: string) => string;
+  isDistributor: boolean;
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Default avatar generator
-const getDefaultAvatar = (name: string): string => {
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&size=200&color=fff&bold=true`;
-};
+interface AuthProviderProps {
+  children: ReactNode;
+}
 
-// Generate profile picture URL
-const getProfilePictureUrl = (avatar?: string): string => {
-  if (!avatar) return '';
-  if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
-    return avatar;
-  }
-  // If it's a base64 or relative path, return as is
-  if (avatar.startsWith('data:image') || avatar.startsWith('/')) {
-    return avatar;
-  }
-  // Default avatar from ui-avatars
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(avatar)}&background=random&size=200&color=fff&bold=true`;
-};
-
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [distributor, setDistributor] = useState<Distributor | null>(null);
+  const [userType, setUserType] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // Check for stored user on mount
+    // Check for existing session
+    const token = localStorage.getItem('access_token');
     const storedUser = localStorage.getItem('user');
-    const storedToken = localStorage.getItem('token');
     
-    if (storedUser && storedToken) {
+    if (token && storedUser) {
       try {
-        const parsedUser = JSON.parse(storedUser);
-        // Ensure profile_picture is set
-        if (!parsedUser.profile_picture && parsedUser.name) {
-          parsedUser.profile_picture = getDefaultAvatar(parsedUser.name);
+        const userData = JSON.parse(storedUser);
+        setUser(userData);
+        setUserType(userData.user_type);
+        
+        // If user is distributor, get distributor data
+        if (userData.user_type === 'distributor') {
+          // Distributor data is stored in session or can be fetched
+          const storedDistributor = localStorage.getItem('distributor');
+          if (storedDistributor) {
+            setDistributor(JSON.parse(storedDistributor));
+          }
         }
-        setUser(parsedUser);
       } catch (error) {
-        console.error('Failed to parse stored user:', error);
+        console.error('Error parsing stored user:', error);
         localStorage.removeItem('user');
-        localStorage.removeItem('token');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
       }
     }
-    setLoading(false);
+    setIsLoading(false);
   }, []);
 
-  // Login user
-  const login = async (credentials: LoginCredentials): Promise<void> => {
-    setLoading(true);
+  const login = async (credentials: LoginCredentials) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await authAPI.login(credentials);
       
-      // Mock user data with profile picture
-      const userData: User = {
-        id: 1,
-        email: credentials.email,
-        name: 'John Doe',
-        firstName: 'John',
-        lastName: 'Doe',
-        isVerified: true,
-        role: 'customer',
-        profile_picture: 'https://ui-avatars.com/api/?name=John+Doe&background=random&size=200&color=fff&bold=true',
-        avatar: 'https://ui-avatars.com/api/?name=John+Doe&background=random&size=200&color=fff&bold=true',
-        phone: '+1 234 567 8900',
-        country: 'TZ',
-        region: 'Dar es Salaam',
-        city: 'Kinondoni',
-        createdAt: new Date().toISOString(),
-        emailVerified: true,
-        status: 'active',
-        bio: 'Welcome to my profile!',
-        gender: 'male',
-        preferredLanguage: 'en',
-      };
+      localStorage.setItem('access_token', response.access);
+      localStorage.setItem('refresh_token', response.refresh);
+      localStorage.setItem('user', JSON.stringify(response.user));
       
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
-      localStorage.setItem('token', 'mock-jwt-token-' + Date.now());
+      setUser(response.user);
+      setUserType(response.user_type);
+      
+      if (response.distributor) {
+        setDistributor(response.distributor);
+        localStorage.setItem('distributor', JSON.stringify(response.distributor));
+      }
     } catch (error) {
-      throw new Error('Login failed. Please check your credentials.');
+      throw error;
+    }
+  };
+
+  const register = async (data: RegisterData) => {
+    try {
+      const response = await authAPI.register(data);
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (refreshToken) {
+        await authAPI.logout(refreshToken);
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
     } finally {
-      setLoading(false);
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('distributor');
+      setUser(null);
+      setDistributor(null);
+      setUserType(null);
     }
   };
 
-  // Register new user
-  const register = async (data: RegisterData): Promise<void> => {
-    setLoading(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Generate profile picture from name
-      const profilePic = data.profile_picture || getDefaultAvatar(data.fullName);
-      
-      // Mock user data with profile picture
-      const userData: User = {
-        id: Date.now(),
-        email: data.email,
-        name: data.fullName,
-        firstName: data.fullName.split(' ')[0] || '',
-        lastName: data.fullName.split(' ').slice(1).join(' ') || '',
-        phone: data.phone,
-        country: data.country,
-        region: data.region,
-        city: data.city,
-        isVerified: false,
-        emailVerified: false,
-        role: 'customer',
-        profile_picture: profilePic,
-        avatar: profilePic,
-        createdAt: new Date().toISOString(),
-        status: 'pending',
-      };
-      
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
-      localStorage.setItem('token', 'mock-jwt-token-' + Date.now());
-    } catch (error) {
-      throw new Error('Registration failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+  const updateUser = (updatedUser: User) => {
+    setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
   };
 
-  // Logout user
-  const logout = (): void => {
-    setUser(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
+  const value: AuthContextType = {
+    user,
+    distributor,
+    userType,
+    isLoading,
+    login,
+    register,
+    logout,
+    updateUser,
+    isAuthenticated: !!user,
+    isDistributor: userType === 'distributor',
+    isAdmin: userType === 'admin',
   };
 
-  // Update user data
-  const updateUser = (userData: Partial<User>): void => {
-    if (user) {
-      const updatedUser = { ...user, ...userData };
-      // Ensure profile_picture is set
-      if (!updatedUser.profile_picture && updatedUser.name) {
-        updatedUser.profile_picture = getDefaultAvatar(updatedUser.name);
-      }
-      setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-    }
-  };
-
-  // Update user profile
-  const updateProfile = async (data: UpdateProfileData): Promise<void> => {
-    setLoading(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      if (user) {
-        const updatedUser = { 
-          ...user, 
-          ...data,
-          // If name is updated, update both name and firstName/lastName if needed
-          profile_picture: data.profile_picture || user.profile_picture,
-        };
-        
-        // If name is provided, update firstName and lastName accordingly
-        if (data.name) {
-          const nameParts = data.name.split(' ');
-          updatedUser.firstName = nameParts[0] || '';
-          updatedUser.lastName = nameParts.slice(1).join(' ') || '';
-        }
-        
-        setUser(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-      }
-    } catch (error) {
-      throw new Error('Failed to update profile. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Upload profile picture
-  const uploadProfilePicture = async (file: File): Promise<string> => {
-    try {
-      // Simulate upload to server
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Convert file to base64 for preview (in real app, you'd get URL from server)
-      const reader = new FileReader();
-      const imageUrl = await new Promise<string>((resolve) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
-      
-      // Update user with new profile picture
-      if (user) {
-        const updatedUser = { 
-          ...user, 
-          profile_picture: imageUrl,
-          avatar: imageUrl,
-        };
-        setUser(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-      }
-      
-      return imageUrl;
-    } catch (error) {
-      throw new Error('Failed to upload profile picture. Please try again.');
-    }
-  };
-
-  // Resend verification code
-  const resendVerification = async (email: string): Promise<void> => {
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log(`Verification code sent to ${email}`);
-    } catch (error) {
-      throw new Error('Failed to resend verification code. Please try again.');
-    }
-  };
-
-  // Verify account with code
-  const verifyAccount = async (email: string, code: string): Promise<void> => {
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      if (code.length !== 6) {
-        throw new Error('Invalid verification code');
-      }
-      
-      if (user) {
-        const updatedUser = { 
-          ...user, 
-          isVerified: true, 
-          emailVerified: true,
-          status: 'active' 
-        };
-        setUser(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-      }
-    } catch (error) {
-      throw new Error('Invalid verification code. Please try again.');
-    }
-  };
-
-  // Send password reset email
-  const resetPassword = async (email: string): Promise<void> => {
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log(`Password reset link sent to ${email}`);
-    } catch (error) {
-      throw new Error('Failed to send password reset email. Please try again.');
-    }
-  };
-
-  // Confirm password reset with code and new password
-  const confirmPasswordReset = async (
-    email: string, 
-    code: string, 
-    password: string
-  ): Promise<void> => {
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      if (code.length !== 6) {
-        throw new Error('Invalid verification code');
-      }
-      if (password.length < 8) {
-        throw new Error('Password must be at least 8 characters');
-      }
-      console.log(`Password reset successfully for ${email}`);
-    } catch (error) {
-      throw new Error('Failed to reset password. Please try again.');
-    }
-  };
-
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        login,
-        register,
-        logout,
-        isAuthenticated: !!user,
-        updateUser,
-        updateProfile,
-        uploadProfilePicture,
-        resendVerification,
-        verifyAccount,
-        resetPassword,
-        confirmPasswordReset,
-        getProfilePictureUrl,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = (): AuthContextType => {

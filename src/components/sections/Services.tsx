@@ -1,40 +1,63 @@
+// src/components/sections/Services.tsx
 import React from 'react';
-import { RefreshCw, Truck, Headphones, CreditCard, Lock, Globe } from 'lucide-react';
-
-const iconMap = {
-  RefreshCw,
-  Truck,
-  Headphones,
-  CreditCard,
-  Lock,
-  Globe
-};
+import { Truck, ShieldCheck, RefreshCw, Headphones } from 'lucide-react';
 
 interface Service {
-  icon: keyof typeof iconMap;
+  icon: React.ReactNode;
   title: string;
-  desc: string;
+  description: string;
 }
+
+const DEFAULT_SERVICES: Service[] = [
+  {
+    icon: <Truck size={28} />,
+    title: 'Free Delivery',
+    description: 'Free shipping on orders over TSh 100,000',
+  },
+  {
+    icon: <ShieldCheck size={28} />,
+    title: 'Secure Payment',
+    description: 'Your payment details are always protected',
+  },
+  {
+    icon: <RefreshCw size={28} />,
+    title: 'Easy Returns',
+    description: '30-day return policy on all orders',
+  },
+  {
+    icon: <Headphones size={28} />,
+    title: '24/7 Support',
+    description: 'We are here to help, any time of day',
+  },
+];
 
 interface ServicesProps {
-  services: Service[];
+  services?: Service[];
 }
 
-const Services: React.FC<ServicesProps> = ({ services }) => {
+const Services: React.FC<ServicesProps> = ({
+  services = DEFAULT_SERVICES,
+}) => {
   return (
-    <section className="py-12 bg-white">
+    <section className="py-12">
       <div className="container mx-auto px-4">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-          {services.map((service, idx) => {
-            const IconComponent = iconMap[service.icon];
-            return (
-              <div key={idx} className="text-center p-4 hover:shadow-lg rounded-lg transition-shadow">
-                <IconComponent className="text-primary mx-auto mb-3" size={32} />
-                <h4 className="font-semibold text-sm uppercase">{service.title}</h4>
-                <p className="text-xs text-gray-500 mt-1">{service.desc}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {services.map((service, idx) => (
+            <div
+              key={idx}
+              className="bg-white rounded-xl p-6 shadow-sm border border-amber-200/30 hover:shadow-md transition-shadow text-center"
+            >
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-amber-50 text-amber-600 mb-4">
+                {service.icon}
               </div>
-            );
-          })}
+              <h3 className="font-semibold text-gray-800">
+                {service.title}
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {service.description}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
     </section>

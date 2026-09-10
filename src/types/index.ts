@@ -17,16 +17,32 @@ export interface User {
   created_at: string;
 }
 
-// Distributor Types
+// In your types file - update the Distributor interface
 export interface Distributor {
   id: number;
-  user: User;
-  full_name: string;
+  user: {
+    id: number;
+    email: string;
+    username: string;
+    first_name: string;
+    last_name: string;
+    full_name: string;
+    phone: string;
+    country: string;
+    region: string;
+    city: string;
+    profile_picture: string | null;
+    user_type: 'customer' | 'distributor' | 'admin';
+    status: 'active' | 'inactive' | 'pending' | 'banned';
+    email_verified: boolean;
+    created_at: string;
+  };
+  full_name: string; // This is also directly on the distributor
   rank: string;
   level: number;
-  pbv: number;
-  cgv: number;
-  bonus_percentage: number;
+  pbv: number | string;
+  cgv: number | string;
+  bonus_percentage: number | string;
   join_date: string;
   downline_count: number;
   active_downline_count: number;
@@ -48,23 +64,118 @@ export interface DistributorStats {
 // Shop Types
 export interface Shop {
   id: number;
-  distributor: number;
-  distributor_name: string;
+  distributor: number | null;
+  distributor_name: string | null;
   name: string;
   location: string;
   region: string;
   country: string;
   phone: string;
-  email: string;
-  performance_level: 'Seed' | 'Bloom' | 'Garden' | 'Emerald' | 'Diamond' | 'Crown' | 'Gold Crown';
+  email: string | null;
+  performance_level:
+    | 'Seed'
+    | 'Bloom'
+    | 'Garden'
+    | 'Emerald'
+    | 'Diamond'
+    | 'Crown'
+    | 'Gold Crown';
   performance_display: string;
-  monthly_revenue: number;
-  bonus_percentage: number;
+  monthly_revenue: number | string;
+  bonus_percentage: number | string;
   customers: number;
-  rating: number;
+  rating: number | string;
   status: 'active' | 'inactive' | 'pending';
   established_date: string;
   created_at: string;
+  updated_at: string;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Cart Types                                                          */
+/* ------------------------------------------------------------------ */
+
+export interface CartUserMini {
+  id: number;
+  email: string;
+  username: string;
+  full_name: string;
+}
+
+export interface CartDistributorMini {
+  id: number;
+  full_name: string;
+  email: string;
+  rank: string;
+}
+
+export interface CartShopMini {
+  id: number;
+  name: string;
+  location: string;
+  region: string;
+  country: string;
+}
+
+export interface CartItem {
+  id: number;
+  cart: number;
+  product: number;
+  product_name: string;
+  product_sku: string;
+  product_picture?: string | null;
+  quantity: number;
+  price: number | string;
+  bv: number;
+  subtotal: number | string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Cart {
+  id: number;
+  user: CartUserMini | null;
+  distributor: CartDistributorMini | null;
+  shop: CartShopMini | null;
+  session_key: string | null;
+  status: 'active' | 'converted' | 'abandoned' | 'expired';
+  notes: string | null;
+  items: CartItem[];
+  subtotal: number | string;
+  total_bv: number;
+  total_items: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** POST /carts/ payload */
+export interface CartCreatePayload {
+  user_id?: number | null;
+  distributor_id?: number | null;
+  shop_id?: number | null;
+  session_key?: string | null;
+  status?: 'active' | 'converted' | 'abandoned' | 'expired';
+  notes?: string;
+}
+
+/** PATCH /carts/<id>/ payload */
+export type CartUpdatePayload = Partial<CartCreatePayload>;
+
+/** POST /carts/<cart_id>/items/ payload */
+export interface CartItemCreatePayload {
+  product: number;
+  quantity: number;
+  price?: number;
+  bv?: number;
+}
+
+/** PATCH /carts/<cart_id>/items/<item_id>/ payload */
+export interface CartItemUpdatePayload {
+  product?: number;
+  quantity?: number;
+  price?: number;
+  bv?: number;
 }
 
 // Category Types
@@ -74,12 +185,14 @@ export interface Category {
   code: string;
   description: string;
   type: 'Classic' | 'Luxury';
-  class_type: 'A' | 'B' | 'C';
+  class_type: 'A' | 'B' | 'C' | 'D';        // ← added 'D'
+  class_type_display?: string;              // ← optional (backend new field)
   bv: number;
   price: number;
   status: 'active' | 'inactive';
   product_count: number;
   created_at: string;
+  updated_at?: string;                      // ← optional
 }
 
 // Product Types
@@ -88,19 +201,22 @@ export interface Product {
   category: number;
   category_name: string;
   category_code: string;
+  category_type?: 'Classic' | 'Luxury';     // ← new
+  category_class_type?: 'A' | 'B' | 'C' | 'D'; // ← new
   sku: string;
   name: string;
   description: string;
-  price: number;
-  bv: number;
+  price: number | null;
+  bv: number | null;
   effective_price: number;
   effective_bv: number;
   stock: number;
   sales: number;
   status: 'active' | 'inactive' | 'coming_soon';
+  product_picture?: string | null;
   created_at: string;
+  updated_at?: string;                      // ← optional
 }
-
 // Order Types
 export interface OrderItem {
   id: number;

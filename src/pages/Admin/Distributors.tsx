@@ -11,14 +11,9 @@ import {
   Trash2,
   X,
   AlertCircle,
-  User,
-  Mail,
-  Phone,
-  MapPin,
   RefreshCw
 } from 'lucide-react';
 import { Award as AwardIcon } from 'lucide-react';
-import { useApi } from '../../hooks/useApi';
 import { distributorAPI } from '../../api/distributors';
 import { userAPI } from '../../api/users';
 import { ViewModal, EditModal, DeleteModal } from '../../components/modals';
@@ -71,57 +66,24 @@ const AddDistributorModal: React.FC<AddDistributorModalProps> = ({
     setLoadingUsers(true);
     setLoadError(null);
     try {
-      console.log('Fetching users...');
-      
-      // Try multiple approaches to get users
-      let response;
-      
-      // First attempt: Get customers only
-      try {
-        response = await userAPI.getCustomers({ status: 'active' });
-        console.log('Customers response:', response);
-      } catch (err) {
-        console.log('Failed to get customers, trying all users...');
+      const response = await userAPI.getNonDistributors({ status: 'active' });
+      let usersData: UserType[] = [];
+      if (Array.isArray(response)) {
+        usersData = response;
+      } else if (response && response.results) {
+        usersData = response.results;
       }
       
-      // If no customers found or error, try getting all non-distributors
-      if (!response || !response.results || response.results.length === 0) {
-        try {
-          response = await userAPI.getNonDistributors();
-          console.log('All non-distributors response:', response);
-        } catch (err) {
-          console.log('Failed to get non-distributors');
-        }
-      }
-      
-      // If still no results, try getting all users
-      if (!response || !response.results || response.results.length === 0) {
-        try {
-          response = await userAPI.getAll();
-          console.log('All users response:', response);
-        } catch (err) {
-          console.log('Failed to get all users');
-        }
-      }
-      
-      if (response && response.results) {
-        // Filter out distributors and admins
-        const availableUsers = response.results.filter(
-          (user: UserType) => user.user_type !== 'distributor' && user.user_type !== 'admin'
-        );
-        setUsers(availableUsers);
-        console.log('Available users to convert:', availableUsers);
-        
-        if (availableUsers.length === 0) {
-          setLoadError('No available users found. Users must register first.');
-        }
-      } else {
-        setUsers([]);
-        setLoadError('Failed to load users. Please try again.');
+      const availableUsers = usersData.filter(
+        (user: UserType) => user.user_type !== 'distributor' && user.user_type !== 'admin'
+      );
+      setUsers(availableUsers);
+      if (availableUsers.length === 0) {
+        setLoadError('No available users found. Users must register first.');
       }
     } catch (error: any) {
       console.error('Error loading users:', error);
-      setLoadError(error.response?.data?.error || 'Failed to load users. Please try again.');
+      setLoadError(error.response?.data?.error || 'Failed to load users.');
       setUsers([]);
     } finally {
       setLoadingUsers(false);
@@ -131,10 +93,11 @@ const AddDistributorModal: React.FC<AddDistributorModalProps> = ({
   const loadDistributors = async () => {
     setLoadingDistributors(true);
     try {
-      const response = await distributorAPI.getAll();
-      setDistributors(response.results || []);
+      const data = await distributorAPI.getAll();
+      setDistributors(data);
     } catch (error) {
       console.error('Error loading distributors:', error);
+      setDistributors([]);
     } finally {
       setLoadingDistributors(false);
     }
@@ -146,7 +109,6 @@ const AddDistributorModal: React.FC<AddDistributorModalProps> = ({
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     
-    // If user selection changes, find the selected user
     if (name === 'user_id' && value) {
       const user = users.find(u => u.id === parseInt(value));
       setSelectedUser(user || null);
@@ -160,7 +122,6 @@ const AddDistributorModal: React.FC<AddDistributorModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate
     const newErrors: Record<string, string> = {};
     if (!formData.user_id) {
       newErrors.user_id = 'Please select a user';
@@ -178,7 +139,6 @@ const AddDistributorModal: React.FC<AddDistributorModalProps> = ({
         upline_id: formData.upline_id ? parseInt(formData.upline_id) : null,
       });
       onClose();
-      // Reset form
       setFormData({
         user_id: '',
         rank: 'Associate',
@@ -211,7 +171,6 @@ const AddDistributorModal: React.FC<AddDistributorModalProps> = ({
         </div>
         
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Select User */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Select Registered User <span className="text-red-500">*</span>
@@ -238,17 +197,9 @@ const AddDistributorModal: React.FC<AddDistributorModalProps> = ({
               )}
             </select>
             {errors.user_id && <p className="text-sm text-red-500 mt-1">{errors.user_id}</p>}
-            {loadError && (
-              <p className="text-sm text-red-500 mt-1">{loadError}</p>
-            )}
-            {users.length === 0 && !loadingUsers && !loadError && (
-              <p className="text-sm text-amber-600 mt-1">
-                No active users available. Users must register first before becoming distributors.
-              </p>
-            )}
+            {loadError && <p className="text-sm text-red-500 mt-1">{loadError}</p>}
           </div>
 
-          {/* Show selected user info */}
           {selectedUser && (
             <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
               <p className="text-xs text-gray-500">Selected User</p>
@@ -265,7 +216,6 @@ const AddDistributorModal: React.FC<AddDistributorModalProps> = ({
             </div>
           )}
 
-          {/* Select Rank */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Initial Rank
@@ -289,7 +239,6 @@ const AddDistributorModal: React.FC<AddDistributorModalProps> = ({
             </select>
           </div>
 
-          {/* Select Upline (Optional) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Upline (Optional)
@@ -303,6 +252,8 @@ const AddDistributorModal: React.FC<AddDistributorModalProps> = ({
               <option value="">No upline (Top level)</option>
               {loadingDistributors ? (
                 <option value="" disabled>Loading distributors...</option>
+              ) : distributors.length === 0 ? (
+                <option value="" disabled>No distributors available</option>
               ) : (
                 distributors.map((d) => (
                   <option key={d.id} value={d.id}>
@@ -343,12 +294,13 @@ const AddDistributorModal: React.FC<AddDistributorModalProps> = ({
   );
 };
 
-// Main Distributors Component (keep the same)
+// Main Distributors Component
 const Distributors: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRank, setFilterRank] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
   const [selectedDistributor, setSelectedDistributor] = useState<Distributor | null>(null);
+  const [distributors, setDistributors] = useState<Distributor[]>([]);
   const [stats, setStats] = useState<DistributorStats>({
     total: 0,
     active: 0,
@@ -358,64 +310,113 @@ const Distributors: React.FC = () => {
     totalPBV: 0,
   });
   
-  // Modal states
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const {
-    data: distributorsData,
-    loading,
-    execute: fetchDistributors,
-  } = useApi<Distributor[]>();
+  // Check if user is authenticated
+  const isAuthenticated = !!localStorage.getItem('access_token');
+
+  const loadDistributors = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      // Check authentication
+      if (!isAuthenticated) {
+        setError('Please login to view distributors');
+        setLoading(false);
+        return;
+      }
+
+      console.log('Fetching distributors...');
+      const data = await distributorAPI.getAll();
+      console.log('Distributors data:', data);
+      console.log('Number of distributors:', data.length);
+      
+      if (data.length > 0) {
+        console.log('First distributor:', data[0]);
+        console.log('First distributor name:', data[0].full_name);
+      }
+      
+      setDistributors(data);
+      
+      const active = data.filter(d => d.user?.status === 'active').length;
+      const pending = data.filter(d => d.user?.status === 'pending').length;
+      const inactive = data.filter(d => d.user?.status === 'inactive' || d.user?.status === 'banned').length;
+      const totalCGV = data.reduce((sum, d) => sum + Number(d.cgv || 0), 0);
+      const totalPBV = data.reduce((sum, d) => sum + Number(d.pbv || 0), 0);
+
+      setStats({
+        total: data.length,
+        active,
+        pending,
+        inactive,
+        totalCGV,
+        totalPBV,
+      });
+      
+      console.log('Stats calculated:', {
+        total: data.length,
+        active,
+        pending,
+        inactive,
+        totalCGV,
+        totalPBV,
+      });
+    } catch (err: any) {
+      console.error('Error loading distributors:', err);
+      
+      let errorMessage = 'Failed to load distributors.';
+      
+      if (err.response?.status === 401) {
+        errorMessage = 'Session expired. Please login again.';
+        // Clear invalid tokens
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user');
+        // Optionally redirect to login
+        // window.location.href = '/login';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'You don\'t have permission to view distributors.';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'API endpoint not found. Check your API configuration.';
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+      setDistributors([]);
+      setStats({
+        total: 0,
+        active: 0,
+        pending: 0,
+        inactive: 0,
+        totalCGV: 0,
+        totalPBV: 0,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadDistributors();
   }, []);
 
-  const loadDistributors = async () => {
-    setError(null);
-    try {
-      const data = await fetchDistributors(() => distributorAPI.getAll().then(res => res.results));
-      if (data) {
-        calculateStats(data);
-      }
-    } catch (err) {
-      setError('Failed to load distributors. Please try again.');
-      console.error('Error loading distributors:', err);
-    }
-  };
-
-  const calculateStats = (data: Distributor[]) => {
-    const active = data.filter(d => d.user?.status === 'active').length;
-    const pending = data.filter(d => d.user?.status === 'pending').length;
-    const inactive = data.filter(d => d.user?.status === 'inactive' || d.user?.status === 'banned').length;
-    const totalCGV = data.reduce((sum, d) => sum + d.cgv, 0);
-    const totalPBV = data.reduce((sum, d) => sum + d.pbv, 0);
-
-    setStats({
-      total: data.length,
-      active,
-      pending,
-      inactive,
-      totalCGV,
-      totalPBV,
-    });
-  };
-
-  // Filter distributors
-  const filteredDistributors = distributorsData?.filter(d => {
+  const filteredDistributors = distributors.filter(d => {
     const matchesSearch = d.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          d.user?.email?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRank = filterRank === 'All' || d.rank === filterRank;
     const matchesStatus = filterStatus === 'All' || d.user?.status === filterStatus.toLowerCase();
     return matchesSearch && matchesRank && matchesStatus;
-  }) || [];
+  });
 
-  // Handlers
   const handleView = (distributor: Distributor) => {
     setSelectedDistributor(distributor);
     setViewModalOpen(true);
@@ -432,6 +433,10 @@ const Distributors: React.FC = () => {
   };
 
   const handleAdd = () => {
+    if (!isAuthenticated) {
+      setError('Please login to add distributors');
+      return;
+    }
     setAddModalOpen(true);
   };
 
@@ -439,14 +444,23 @@ const Distributors: React.FC = () => {
     setIsSubmitting(true);
     setError(null);
     try {
+      console.log('Creating distributor with data:', data);
       await distributorAPI.create(data);
       await loadDistributors();
       setAddModalOpen(false);
     } catch (err: any) {
       console.error('Error adding distributor:', err);
-      const errorMessage = err.response?.data?.error || 
-                          err.response?.data?.message ||
-                          'Failed to add distributor. Please try again.';
+      let errorMessage = 'Failed to add distributor. Please try again.';
+      if (err.response?.status === 401) {
+        errorMessage = 'Session expired. Please login again.';
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user');
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
       setError(errorMessage);
       throw err;
     } finally {
@@ -458,14 +472,23 @@ const Distributors: React.FC = () => {
     setIsSubmitting(true);
     setError(null);
     try {
+      console.log('Updating distributor with data:', data);
       await distributorAPI.update(data.id, data);
       await loadDistributors();
       setEditModalOpen(false);
     } catch (err: any) {
       console.error('Error updating distributor:', err);
-      const errorMessage = err.response?.data?.error || 
-                          err.response?.data?.message ||
-                          'Failed to update distributor. Please try again.';
+      let errorMessage = 'Failed to update distributor. Please try again.';
+      if (err.response?.status === 401) {
+        errorMessage = 'Session expired. Please login again.';
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user');
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
       setError(errorMessage);
       throw err;
     } finally {
@@ -478,15 +501,24 @@ const Distributors: React.FC = () => {
     setIsSubmitting(true);
     setError(null);
     try {
+      console.log('Deleting distributor:', selectedDistributor.id);
       await distributorAPI.delete(selectedDistributor.id);
       await loadDistributors();
       setDeleteModalOpen(false);
       setSelectedDistributor(null);
     } catch (err: any) {
       console.error('Error deleting distributor:', err);
-      const errorMessage = err.response?.data?.error || 
-                          err.response?.data?.message ||
-                          'Failed to delete distributor. Please try again.';
+      let errorMessage = 'Failed to delete distributor. Please try again.';
+      if (err.response?.status === 401) {
+        errorMessage = 'Session expired. Please login again.';
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user');
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
       setError(errorMessage);
       throw err;
     } finally {
@@ -494,7 +526,6 @@ const Distributors: React.FC = () => {
     }
   };
 
-  // Rank colors
   const rankColors: Record<string, string> = {
     'Royal Crown Director': 'bg-amber-100 text-amber-700 border-amber-300',
     'Crown Director': 'bg-purple-100 text-purple-700 border-purple-300',
@@ -534,6 +565,7 @@ const Distributors: React.FC = () => {
       <div className="p-4 md:p-6 space-y-6">
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-amber-500 border-t-transparent"></div>
+          <p className="mt-4 text-gray-500">Loading distributors...</p>
         </div>
       </div>
     );
@@ -546,10 +578,21 @@ const Distributors: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Distributors</h1>
           <p className="text-sm text-gray-500 mt-1">Manage your OMA Flowers distributors network</p>
+          <p className="text-xs text-gray-400 mt-1">
+            {stats.total === 0 ? 'No distributors found' : `Total: ${stats.total} distributors`}
+          </p>
+          {!isAuthenticated && (
+            <p className="text-xs text-red-500 mt-1">⚠️ Please login to manage distributors</p>
+          )}
         </div>
         <button 
           onClick={handleAdd}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-lg hover:from-amber-600 hover:to-amber-700 transition-all duration-300 shadow-md hover:shadow-lg text-sm font-medium"
+          disabled={!isAuthenticated}
+          className={`flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg text-sm font-medium ${
+            isAuthenticated 
+              ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700' 
+              : 'bg-gray-400 cursor-not-allowed'
+          }`}
         >
           <UserPlus size={16} />
           Add Distributor
@@ -688,7 +731,7 @@ const Distributors: React.FC = () => {
                   <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                     {searchTerm || filterRank !== 'All' || filterStatus !== 'All' 
                       ? 'No distributors match your filters' 
-                      : 'No distributors found'}
+                      : stats.total === 0 ? 'No distributors found. Add your first distributor!' : 'No distributors found'}
                   </td>
                 </tr>
               ) : (
@@ -840,59 +883,68 @@ const Distributors: React.FC = () => {
       </ViewModal>
 
       {/* Edit Modal */}
-      <EditModal
-        isOpen={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        onSave={handleSaveEdit}
-        title="Edit Distributor"
-        initialData={selectedDistributor ? {
-          id: selectedDistributor.id,
-          rank: selectedDistributor.rank || 'Associate',
-          level: selectedDistributor.level || 1,
-          pbv: selectedDistributor.pbv || 0,
-          cgv: selectedDistributor.cgv || 0,
-          bonus_percentage: selectedDistributor.bonus_percentage || 0,
-        } : {}}
-        isLoading={isSubmitting}
-        fields={[
-          {
-            name: 'rank',
-            label: 'Rank',
-            type: 'select',
-            required: true,
-            options: [
-              { value: 'Associate', label: 'Associate' },
-              { value: 'Builder', label: 'Builder' },
-              { value: 'Leader', label: 'Leader' },
-              { value: 'Senior Leader', label: 'Senior Leader' },
-              { value: 'Executive', label: 'Executive' },
-              { value: 'Manager', label: 'Manager' },
-              { value: 'Senior Manager', label: 'Senior Manager' },
-              { value: 'Director', label: 'Director' },
-              { value: 'Crown Director', label: 'Crown Director' },
-              { value: 'Royal Crown Director', label: 'Royal Crown Director' },
-            ]
-          },
-          {
-            name: 'pbv',
-            label: 'PBV',
-            type: 'number',
-            required: true,
-          },
-          {
-            name: 'cgv',
-            label: 'CGV',
-            type: 'number',
-            required: true,
-          },
-          {
-            name: 'bonus_percentage',
-            label: 'Bonus %',
-            type: 'number',
-            required: true,
-          },
-        ]}
-      />
+
+
+<EditModal
+  isOpen={editModalOpen}
+  onClose={() => setEditModalOpen(false)}
+  onSave={handleSaveEdit}
+  title="Edit Distributor"
+  initialData={selectedDistributor ? {
+    id: selectedDistributor.id,
+    rank: selectedDistributor.rank || 'Associate',
+    level: selectedDistributor.level || 1,
+    pbv: selectedDistributor.pbv || 0,
+    cgv: selectedDistributor.cgv || 0,
+    bonus_percentage: selectedDistributor.bonus_percentage || 0,
+    // Do NOT include user_id here
+  } : {}}
+  isLoading={isSubmitting}
+  fields={[
+    {
+      name: 'rank',
+      label: 'Rank',
+      type: 'select',
+      required: true,
+      options: [
+        { value: 'Associate', label: 'Associate' },
+        { value: 'Builder', label: 'Builder' },
+        { value: 'Leader', label: 'Leader' },
+        { value: 'Senior Leader', label: 'Senior Leader' },
+        { value: 'Executive', label: 'Executive' },
+        { value: 'Manager', label: 'Manager' },
+        { value: 'Senior Manager', label: 'Senior Manager' },
+        { value: 'Director', label: 'Director' },
+        { value: 'Crown Director', label: 'Crown Director' },
+        { value: 'Royal Crown Director', label: 'Royal Crown Director' },
+      ]
+    },
+    {
+      name: 'pbv',
+      label: 'PBV',
+      type: 'number',
+      required: true,
+    },
+    {
+      name: 'cgv',
+      label: 'CGV',
+      type: 'number',
+      required: true,
+    },
+    {
+      name: 'bonus_percentage',
+      label: 'Bonus %',
+      type: 'number',
+      required: true,
+    },
+    {
+      name: 'level',
+      label: 'Level',
+      type: 'number',
+      required: false,
+    },
+  ]}
+/>
 
       {/* Delete Modal */}
       <DeleteModal

@@ -1,16 +1,34 @@
+// api/products.ts
 import api from './index';
-import type { Category, Product, PaginatedResponse } from '../types';
+import type { Product } from '../types';
 
 export const productAPI = {
-  getCategories: (params?: any): Promise<PaginatedResponse<Category>> =>
-    api.get('/products/categories/', { params }),
+  getAll: async (params?: any): Promise<Product[]> => {
+    try {
+      const data = await api.get<Product[]>('/products/', { params });
+      if (Array.isArray(data)) return data;
+      const wrapped = data as any;
+      if (wrapped && Array.isArray(wrapped.results)) return wrapped.results;
+      return [];
+    } catch (error) {
+      console.error('Error in productAPI.getAll:', error);
+      throw error;
+    }
+  },
 
-  getCategory: (id: number): Promise<Category> =>
-    api.get(`/products/categories/${id}/`),
+  getById: async (id: number): Promise<Product> => {
+    return api.get<Product>(`/products/${id}/`);
+  },
 
-  getAll: (params?: any): Promise<PaginatedResponse<Product>> =>
-    api.get('/products/', { params }),
+  create: async (data: Partial<Product>): Promise<Product> => {
+    return api.post<Product>('/products/', data);
+  },
 
-  getById: (id: number): Promise<Product> =>
-    api.get(`/products/${id}/`),
+  update: async (id: number, data: Partial<Product>): Promise<Product> => {
+    return api.patch<Product>(`/products/${id}/`, data);
+  },
+
+  delete: async (id: number): Promise<{ message: string }> => {
+    return api.delete<{ message: string }>(`/products/${id}/`);
+  },
 };

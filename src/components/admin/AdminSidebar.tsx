@@ -1,6 +1,6 @@
 // src/components/admin/AdminSidebar.tsx
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Package, 
@@ -17,8 +17,11 @@ import {
   Flower2,
   TrendingUp,
   Star,
-  Crown
+  Crown,
+  User as UserIcon
 } from 'lucide-react';
+import { authAPI } from '../../api/auth';
+import type { User } from '../../types';
 
 interface MenuItem {
   id: number;
@@ -49,8 +52,122 @@ interface AdminSidebarProps {
 
 const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const isActive = (path: string) => location.pathname === path;
+
+  // Fetch user profile on mount
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        // Try to get user from localStorage first
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+          setLoading(false);
+        }
+
+        // Then fetch fresh profile from API
+        const profile = await authAPI.getProfile();
+        setUser(profile);
+        localStorage.setItem('user', JSON.stringify(profile));
+      } catch (error) {
+        console.error('Failed to fetch user profile:', error);
+        // Try to use stored user as fallback
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+    
+    try {
+      setIsLoggingOut(true);
+      const refreshToken = localStorage.getItem('refresh_token');
+      
+      if (refreshToken) {
+        await authAPI.logout(refreshToken);
+      }
+      
+      // Clear local storage
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+      
+      // Navigate to login
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if API fails, clear local storage and redirect
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+      navigate('/login');
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (!user) return 'U';
+    if (user.full_name) {
+      return user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    }
+    if (user.first_name && user.last_name) {
+      return (user.first_name[0] + user.last_name[0]).toUpperCase();
+    }
+    if (user.first_name) {
+      return user.first_name[0].toUpperCase();
+    }
+    if (user.email) {
+      return user.email[0].toUpperCase();
+    }
+    return 'U';
+  };
+
+  // Get user display name
+  const getDisplayName = () => {
+    if (!user) return 'User';
+    if (user.full_name) return user.full_name;
+    if (user.first_name && user.last_name) return `${user.first_name} ${user.last_name}`;
+    if (user.first_name) return user.first_name;
+    if (user.email) return user.email.split('@')[0];
+    return 'User';
+  };
+
+  // Get user role display
+  const getUserRole = () => {
+    if (!user) return 'Loading...';
+    const roleMap: Record<string, string> = {
+      'admin': 'Administrator',
+      'distributor': 'Distributor',
+      'customer': 'Customer',
+    };
+    return roleMap[user.user_type] || user.user_type || 'User';
+  };
+
+  // Get role color
+  const getRoleColor = () => {
+    if (!user) return 'text-amber-400/70';
+    const colorMap: Record<string, string> = {
+      'admin': 'text-amber-400',
+      'distributor': 'text-emerald-400',
+      'customer': 'text-blue-400',
+    };
+    return colorMap[user.user_type] || 'text-amber-400/70';
+  };
 
   return (
     <>
@@ -130,7 +247,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen, onClose }) => {
           <div className="my-4 border-t border-amber-600/20"></div>
 
           <div className="space-y-1">
-            <Link to="/admin" className={`
+            <Link to="/" className={`
               flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200
               hover:bg-amber-600/30 hover:text-amber-100
               ${!isOpen ? 'lg:justify-center' : ''}
@@ -139,14 +256,24 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen, onClose }) => {
               <Home className="text-amber-300" size={18} />
               <span className={`${!isOpen ? 'lg:hidden' : ''} text-sm font-medium`}>Back to Site</span>
             </Link>
-            <button className={`
-              w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200
-              hover:bg-rose-500/20 hover:text-rose-200
-              ${!isOpen ? 'lg:justify-center' : ''}
-              group
-            `}>
-              <LogOut className="text-rose-300" size={18} />
-              <span className={`${!isOpen ? 'lg:hidden' : ''} text-sm font-medium`}>Logout</span>
+            <button 
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className={`
+                w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200
+                hover:bg-rose-500/20 hover:text-rose-200
+                ${!isOpen ? 'lg:justify-center' : ''}
+                group disabled:opacity-50
+              `}
+            >
+              {isLoggingOut ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-rose-300 border-t-transparent"></div>
+              ) : (
+                <LogOut className="text-rose-300" size={18} />
+              )}
+              <span className={`${!isOpen ? 'lg:hidden' : ''} text-sm font-medium`}>
+                {isLoggingOut ? 'Logging out...' : 'Logout'}
+              </span>
             </button>
           </div>
         </nav>
@@ -154,14 +281,31 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen, onClose }) => {
         {/* User Profile */}
         <div className={`border-t border-amber-600/30 p-4 flex-shrink-0 ${!isOpen ? 'lg:p-3' : ''}`}>
           <div className={`flex items-center gap-3 ${!isOpen ? 'lg:justify-center' : ''}`}>
-            <img
-              src="https://ui-avatars.com/api/?name=Admin+User&background=amber&color=fff&size=40"
-              alt="Admin"
-              className="w-9 h-9 rounded-full border-2 border-amber-400/30"
-            />
-            <div className={`transition-all duration-300 ${!isOpen ? 'lg:hidden' : ''}`}>
-              <p className="text-sm font-medium text-amber-100">Admin User</p>
-              <p className="text-xs text-amber-400/70">Super Admin</p>
+            {loading ? (
+              <div className="w-9 h-9 rounded-full bg-amber-600/50 animate-pulse"></div>
+            ) : user?.profile_picture ? (
+              <img
+                src={user.profile_picture}
+                alt={getDisplayName()}
+                className="w-9 h-9 rounded-full border-2 border-amber-400/30 object-cover"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-amber-600/50 flex items-center justify-center text-amber-200 font-bold text-sm border-2 border-amber-400/30">
+                {getUserInitials()}
+              </div>
+            )}
+            <div className={`transition-all duration-300 flex-1 min-w-0 ${!isOpen ? 'lg:hidden' : ''}`}>
+              <p className="text-sm font-medium text-amber-100 truncate">
+                {loading ? 'Loading...' : getDisplayName()}
+              </p>
+              <p className={`text-xs ${getRoleColor()} truncate`}>
+                {loading ? 'Loading...' : getUserRole()}
+              </p>
+              {user?.email && (
+                <p className="text-xs text-amber-400/50 truncate">
+                  {user.email}
+                </p>
+              )}
             </div>
           </div>
         </div>

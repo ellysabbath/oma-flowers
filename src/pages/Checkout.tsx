@@ -1,10 +1,116 @@
 // src/pages/Checkout.tsx
-import React, { useState } from 'react';
-import { CreditCard, Truck, Shield, ChevronDown, Check } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { CreditCard, Shield, Check, Loader2, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { cartAPI } from '../api/cart';
+import { useAuth } from '../context/AuthContext';
+import type { Cart as ApiCart } from '../types';
+
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
+
+const num = (v: number | string | undefined | null): number =>
+  v === undefined || v === null ? 0 : Number(v);
+
+const SHIPPING_FREE_THRESHOLD = 100000;
+const SHIPPING_FLAT = 5000;
+
+const getCurrentUserId = (): number | null => {
+  try {
+    return JSON.parse(localStorage.getItem('user') || 'null')?.id ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const getOrCreateSessionKey = (): string => {
+  const KEY = 'cart_session_key';
+  let sk = localStorage.getItem(KEY);
+  if (!sk) {
+    sk = `guest-${Math.random().toString(36).slice(2)}-${Date.now()}`;
+    localStorage.setItem(KEY, sk);
+  }
+  return sk;
+};
+
+/* ------------------------------------------------------------------ */
+/* Auto-fill helpers                                                   */
+/* ------------------------------------------------------------------ */
+
+interface PrefillData {
+  fullName: string;
+  email: string;
+  phone: string;
+  country: string;
+  region: string;
+  city: string;
+}
+
+const getPrefillFromUser = (user: any): PrefillData => {
+  if (!user) {
+    return {
+      fullName: '',
+      email: '',
+      phone: '',
+      country: 'Tanzania',
+      region: '',
+      city: '',
+    };
+  }
+
+  // Prefer nested full_name; fall back to first + last
+  const fullName =
+    user.full_name ||
+    `${user.first_name || ''} ${user.last_name || ''}`.trim() ||
+    user.username ||
+    '';
+
+  return {
+    fullName,
+    email: user.email || '',
+    phone: user.phone || user.mobile_number || '',
+    // Map country codes → names if needed
+    country: (() => {
+      const c = user.country || 'Tanzania';
+      const map: Record<string, string> = {
+        TZ: 'Tanzania',
+        KE: 'Kenya',
+        UG: 'Uganda',
+        NG: 'Nigeria',
+        ZA: 'South Africa',
+        GH: 'Ghana',
+      };
+      return map[c] || c;
+    })(),
+    region: user.region || '',
+    city: user.city || '',
+  };
+};
+
+const getPrefillFromLocalStorage = (): PrefillData => {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return getPrefillFromUser(null);
+    return getPrefillFromUser(JSON.parse(raw));
+  } catch {
+    return getPrefillFromUser(null);
+  }
+};
+
+/* ------------------------------------------------------------------ */
+/* Component                                                           */
+/* ------------------------------------------------------------------ */
 
 const Checkout: React.FC = () => {
+  const { user, isAuthenticated } = useAuth();
   const [step, setStep] = useState(1);
+  const [cart, setCart] = useState<ApiCart | null>(null);
+  const [loadingCart, setLoadingCart] = useState(true);
+  const [placingOrder, setPlacingOrder] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [prefilled, setPrefilled] = useState(false);
+
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -20,37 +126,162 @@ const Checkout: React.FC = () => {
     cvv: '',
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  /* ---------- Load the active cart ---------- */
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        setLoadingCart(true);
+        const userId = getCurrentUserId();
+        const sessionKey = userId ? null : getOrCreateSessionKey();
+        const active = await cartAPI.getOrCreateForUser(userId, sessionKey);
+        if (!cancelled) setCart(active);
+      } catch (err) {
+        console.error('Failed to load cart for checkout:', err);
+      } finally {
+        if (!cancelled) setLoadingCart(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /* ---------- Auto-fill from the logged-in user ---------- */
+  useEffect(() => {
+    // Try the AuthContext user first
+    let source: PrefillData;
+
+    if (user) {
+      source = getPrefillFromUser(user);
+    } else {
+      source = getPrefillFromLocalStorage();
+    }
+
+    // Only apply prefill values that exist — never blank out typed values
+    setFormData((prev) => ({
+      ...prev,
+      fullName: prev.fullName || source.fullName,
+      email: prev.email || source.email,
+      phone: prev.phone || source.phone,
+      country: prev.country && prev.country !== 'Tanzania'
+        ? prev.country
+        : source.country,
+      region: prev.region || source.region,
+      city: prev.city || source.city,
+      // Prefill cardholder name from full name for convenience
+      cardName: prev.cardName || source.fullName,
+    }));
+
+    // Only show the "prefilled" badge once we have at least one value
+    if (source.fullName || source.email || source.phone) {
+      setPrefilled(true);
+    }
+  }, [user]);
+
+  /* ---------- Totals (single source of truth) ---------- */
+  const subtotal = (cart?.items || []).reduce(
+    (sum, i) => sum + num(i.price) * i.quantity,
+    0
+  );
+  const totalItems = (cart?.items || []).reduce(
+    (sum, i) => sum + i.quantity,
+    0
+  );
+  const shipping =
+    subtotal === 0 || subtotal > SHIPPING_FREE_THRESHOLD ? 0 : SHIPPING_FLAT;
+  const tax = 0;
+  const total = subtotal + shipping + tax;
+
+  /* ---------- Input handler ---------- */
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  /* ---------- Place order ---------- */
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!cart || totalItems === 0) {
+      alert('Your cart is empty.');
+      return;
+    }
+
+    setError(null);
     setStep(2);
-    // Simulate order processing
-    setTimeout(() => setStep(3), 2000);
+    setPlacingOrder(true);
+
+    try {
+      await cartAPI.checkout(cart.id);
+      window.dispatchEvent(new Event('cart:updated'));
+      setStep(3);
+    } catch (err: any) {
+      console.error('Checkout failed:', err);
+      setError(
+        err?.response?.data?.error ||
+          err?.message ||
+          'Checkout failed. Please try again.'
+      );
+      setStep(1);
+    } finally {
+      setPlacingOrder(false);
+    }
   };
 
-  const orderSummary = {
-    subtotal: 534000,
-    shipping: 0,
-    tax: 0,
-    total: 534000
-  };
+  /* ---------- Loading ---------- */
+  if (loadingCart) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center py-12">
+        <Loader2 className="w-10 h-10 text-amber-500 animate-spin" />
+      </div>
+    );
+  }
 
-  if (step === 2) {
+  /* ---------- Empty cart ---------- */
+  if (!cart || totalItems === 0) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center py-12">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-amber-500 border-t-transparent mx-auto"></div>
-          <h2 className="text-2xl font-bold text-gray-800 mt-4">Processing Your Order</h2>
-          <p className="text-gray-500 mt-2">Please wait while we confirm your payment...</p>
+          <h2 className="text-2xl font-bold text-gray-800">
+            Your cart is empty
+          </h2>
+          <p className="text-gray-500 mt-2">
+            Add some flowers before checking out.
+          </p>
+          <Link
+            to="/shop"
+            className="inline-block mt-6 px-6 py-3 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
+          >
+            Go to Shop
+          </Link>
         </div>
       </div>
     );
   }
 
+  /* ---------- Step 2: processing ---------- */
+  if (step === 2) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-amber-500 border-t-transparent mx-auto"></div>
+          <h2 className="text-2xl font-bold text-gray-800 mt-4">
+            Processing Your Order
+          </h2>
+          <p className="text-gray-500 mt-2">
+            Please wait while we confirm your payment...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---------- Step 3: success ---------- */
   if (step === 3) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center py-12">
@@ -58,33 +289,74 @@ const Checkout: React.FC = () => {
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
             <Check size={40} className="text-green-600" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mt-4">Order Successful!</h2>
-          <p className="text-gray-500 mt-2">Your order has been placed successfully.</p>
-          <p className="text-sm text-amber-600 mt-1">Order #OMA-2026-0007</p>
-          <Link to="/" className="inline-block mt-6 px-6 py-3 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors">
-            Continue Shopping
-          </Link>
+          <h2 className="text-2xl font-bold text-gray-800 mt-4">
+            Order Successful!
+          </h2>
+          <p className="text-gray-500 mt-2">
+            Your order has been placed successfully.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 mt-6 justify-center">
+            <Link
+              to="/shop"
+              className="px-6 py-3 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
+            >
+              Continue Shopping
+            </Link>
+            <Link
+              to="/orders"
+              className="px-6 py-3 border border-amber-500 text-amber-600 rounded-lg hover:bg-amber-50 transition-colors"
+            >
+              View My Orders
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
 
+  /* ---------- Step 1: checkout form ---------- */
   return (
     <div className="min-h-screen bg-amber-50/30 py-12">
       <div className="container mx-auto px-4">
         <h1 className="text-3xl font-bold text-gray-800 mb-8">Checkout</h1>
 
+        {prefilled && isAuthenticated && (
+          <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2 text-sm text-amber-700">
+            <Check size={16} />
+            <span>
+              Your details have been pre-filled from your account. Review and
+              complete the remaining fields.
+            </span>
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+            <AlertCircle className="text-red-500" size={20} />
+            <p className="text-red-600 text-sm flex-1">{error}</p>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Checkout Form */}
+          {/* Form */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-sm border border-amber-200/30 p-6">
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Personal Information */}
+                {/* Personal info — mostly auto-filled */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Personal Information</h3>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center justify-between">
+                    Personal Information
+                    {isAuthenticated && (
+                      <span className="text-xs font-normal text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                        Auto-filled from your account
+                      </span>
+                    )}
+                  </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Full Name
+                      </label>
                       <input
                         type="text"
                         name="fullName"
@@ -95,7 +367,9 @@ const Checkout: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Email
+                      </label>
                       <input
                         type="email"
                         name="email"
@@ -106,7 +380,9 @@ const Checkout: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Phone
+                      </label>
                       <input
                         type="tel"
                         name="phone"
@@ -119,12 +395,16 @@ const Checkout: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Shipping Address */}
+                {/* Shipping */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Shipping Address</h3>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                    Shipping Address
+                  </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Street Address</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Street Address
+                      </label>
                       <input
                         type="text"
                         name="address"
@@ -135,7 +415,9 @@ const Checkout: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        City
+                      </label>
                       <input
                         type="text"
                         name="city"
@@ -146,7 +428,9 @@ const Checkout: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Region</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Region
+                      </label>
                       <input
                         type="text"
                         name="region"
@@ -157,7 +441,9 @@ const Checkout: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">ZIP Code</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        ZIP Code
+                      </label>
                       <input
                         type="text"
                         name="zipCode"
@@ -168,7 +454,9 @@ const Checkout: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Country
+                      </label>
                       <select
                         name="country"
                         value={formData.country}
@@ -179,17 +467,23 @@ const Checkout: React.FC = () => {
                         <option value="Kenya">Kenya</option>
                         <option value="Uganda">Uganda</option>
                         <option value="Nigeria">Nigeria</option>
+                        <option value="South Africa">South Africa</option>
+                        <option value="Ghana">Ghana</option>
                       </select>
                     </div>
                   </div>
                 </div>
 
-                {/* Payment */}
+                {/* Payment — still manual (nobody stores this) */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment Information</h3>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                    Payment Information
+                  </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Card Number</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Card Number
+                      </label>
                       <input
                         type="text"
                         name="cardNumber"
@@ -201,7 +495,9 @@ const Checkout: React.FC = () => {
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Cardholder Name</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Cardholder Name
+                      </label>
                       <input
                         type="text"
                         name="cardName"
@@ -212,7 +508,9 @@ const Checkout: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Expiry Date
+                      </label>
                       <input
                         type="text"
                         name="expiry"
@@ -224,7 +522,9 @@ const Checkout: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">CVV</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        CVV
+                      </label>
                       <input
                         type="text"
                         name="cvv"
@@ -240,10 +540,20 @@ const Checkout: React.FC = () => {
 
                 <button
                   type="submit"
-                  className="w-full px-6 py-3 bg-amber-500 text-white rounded-lg font-semibold hover:bg-amber-600 transition-colors flex items-center justify-center gap-2"
+                  disabled={placingOrder}
+                  className="w-full px-6 py-3 bg-amber-500 text-white rounded-lg font-semibold hover:bg-amber-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
                 >
-                  <CreditCard size={18} />
-                  Place Order
+                  {placingOrder ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      Placing order…
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard size={18} />
+                      Place Order
+                    </>
+                  )}
                 </button>
               </form>
             </div>
@@ -252,24 +562,35 @@ const Checkout: React.FC = () => {
           {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-xl shadow-sm border border-amber-200/30 p-6 sticky top-24">
-              <h3 className="text-lg font-bold text-gray-800 mb-4">Order Summary</h3>
+              <h3 className="text-lg font-bold text-gray-800 mb-4">
+                Order Summary
+              </h3>
+
               <div className="space-y-3">
                 <div className="flex justify-between text-gray-600">
-                  <span>Subtotal</span>
-                  <span>TSh {orderSummary.subtotal.toLocaleString()}</span>
+                  <span>Items</span>
+                  <span>{totalItems}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Shipping</span>
-                  <span>Free</span>
+                  <span>
+                    {shipping === 0
+                      ? 'Free'
+                      : `TSh ${shipping.toLocaleString()}`}
+                  </span>
                 </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>Tax</span>
-                  <span>TSh {orderSummary.tax.toLocaleString()}</span>
-                </div>
+                {tax > 0 && (
+                  <div className="flex justify-between text-gray-600">
+                    <span>Tax</span>
+                    <span>TSh {tax.toLocaleString()}</span>
+                  </div>
+                )}
                 <div className="border-t border-amber-200/30 pt-3">
                   <div className="flex justify-between font-bold text-gray-800">
                     <span>Total</span>
-                    <span className="text-amber-600">TSh {orderSummary.total.toLocaleString()}</span>
+                    <span className="text-amber-600 text-xl">
+                      TSh {total.toLocaleString()}
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-500 pt-3 border-t border-amber-100/30">

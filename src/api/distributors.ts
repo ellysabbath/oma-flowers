@@ -1,32 +1,75 @@
+// api/distributors.ts
+
 import api from './index';
-import type { Distributor, DistributorStats, PaginatedResponse } from '../types';
+import type { Distributor, DistributorStats } from '../types';
 
 export const distributorAPI = {
-  // Get all distributors with optional filtering
-  getAll: (params?: any): Promise<PaginatedResponse<Distributor>> =>
-    api.get('/distributors/', { params }),
+  // Get all distributors - returns array directly (no pagination)
+  getAll: async (params?: any): Promise<Distributor[]> => {
+    try {
+      const data = await api.get<Distributor[]>('/distributors/', { params });
+      
+      if (Array.isArray(data)) {
+        return data;
+      }
+      
+      const wrappedData = data as any;
+      if (wrappedData && Array.isArray(wrappedData.results)) {
+        return wrappedData.results;
+      }
+      
+      console.warn('Unexpected API response format:', data);
+      return [];
+      
+    } catch (error) {
+      console.error('Error in distributorAPI.getAll:', error);
+      throw error;
+    }
+  },
 
   // Get a single distributor by ID
-  getById: (id: number): Promise<Distributor> =>
-    api.get(`/distributors/${id}/`),
+  getById: async (id: number): Promise<Distributor> => {
+    return api.get<Distributor>(`/distributors/${id}/`);
+  },
 
   // Get distributor hierarchy (downline tree)
-  getHierarchy: (id?: number): Promise<any> =>
-    api.get(`/distributors/${id || ''}/hierarchy/`),
+  getHierarchy: async (id?: number): Promise<any> => {
+    return api.get(`/distributors/${id || ''}/hierarchy/`);
+  },
 
   // Get distributor statistics
-  getStats: (): Promise<DistributorStats> =>
-    api.get('/distributors/stats/'),
+  getStats: async (): Promise<DistributorStats> => {
+    return api.get<DistributorStats>('/distributors/stats/');
+  },
 
   // Create a new distributor from existing user
-  create: (data: { user_id: number; upline_id?: number | null; rank?: string }): Promise<Distributor> =>
-    api.post('/distributors/', data),
+  create: async (data: { user_id: number; upline_id?: number | null; rank?: string }): Promise<Distributor> => {
+    return api.post<Distributor>('/distributors/', data);
+  },
 
-  // Update an existing distributor
-  update: (id: number, data: Partial<Distributor>): Promise<Distributor> =>
-    api.put(`/distributors/${id}/`, data),
+  // Update an existing distributor - using PATCH for partial updates
+  update: async (id: number, data: Partial<Distributor>): Promise<Distributor> => {
+    // Only send fields that are allowed to be updated
+    const updateData: any = {};
+    
+    // Map frontend fields to backend expected fields
+    if (data.rank !== undefined) updateData.rank = data.rank;
+    if (data.level !== undefined) updateData.level = data.level;
+    if (data.pbv !== undefined) updateData.pbv = data.pbv;
+    if (data.cgv !== undefined) updateData.cgv = data.cgv;
+    if (data.bonus_percentage !== undefined) updateData.bonus_percentage = data.bonus_percentage;
+    if (data.upline_id !== undefined) updateData.upline_id = data.upline_id;
+    
+    // Note: user_id is NOT sent on update (only on create)
+    
+    console.log('Sending update data:', updateData);
+    
+    // Use PATCH for partial updates
+    return api.patch<Distributor>(`/distributors/${id}/`, updateData);
+  },
 
   // Delete a distributor
-  delete: (id: number): Promise<{ message: string }> =>
-    api.delete(`/distributors/${id}/`),
+  delete: async (id: number): Promise<{ message: string }> => {
+    return api.delete<{ message: string }>(`/distributors/${id}/`);
+  },
 };

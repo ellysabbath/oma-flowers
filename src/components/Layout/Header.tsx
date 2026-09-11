@@ -206,7 +206,7 @@ const Header: React.FC<HeaderProps> = ({ cartCount: cartCountOverride }) => {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-4 py-3 border-l border-amber-200/60 outline-none bg-amber-50/50 text-gray-600 hover:bg-amber-100/50 cursor-pointer transition-colors duration-200 max-w-[220px] truncate"
+                className="px-4 py-3 border-l max-h-[220px]  border-amber-200/60 outline-none bg-amber-50/50 text-gray-600 hover:bg-amber-100/50 cursor-pointer transition-colors duration-200 max-w-[220px] truncate"
               >
                 <option value="all">All Categories</option>
                 {categories.map((cat) => (

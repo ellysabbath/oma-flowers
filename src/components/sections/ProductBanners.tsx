@@ -75,8 +75,8 @@ const ProductBanners: React.FC = () => {
   };
 
   const goToProduct = (p: Product | null) => {
-    if (p) navigate(`/cart/${p.id}`);
-    else navigate('/cart');
+    if (p) navigate(`/products/${p.id}`);
+    else navigate('/products');
   };
 
   /* ---------- Render ---------- */

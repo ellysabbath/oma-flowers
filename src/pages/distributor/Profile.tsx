@@ -28,11 +28,11 @@ import {
   Flag,
 } from 'lucide-react';
 
-import { useAuth } from '../context/AuthContext';
-import { authAPI } from '../api/auth';
-import { distributorAPI } from '../api/distributors';
-import ProfilePictureUpload from '../components/common/ProfilePictureUpload';
-import type { User, Distributor } from '../types';
+import { useAuth } from '../../context/AuthContext'; 
+import { authAPI } from '../../api/auth'; 
+import { distributorAPI } from '../../api/distributors'; 
+import ProfilePictureUpload from '../../components/common/ProfilePictureUpload';
+import type { User, Distributor } from '../../types';
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */

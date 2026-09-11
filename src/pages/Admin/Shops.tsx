@@ -19,6 +19,7 @@ import {
   Save,
   AlertCircle,
   RefreshCw,
+  Info,
 } from 'lucide-react';
 
 import { shopAPI } from '../../api/shops';
@@ -26,7 +27,7 @@ import { distributorAPI } from '../../api/distributors';
 import type { Shop as ApiShop, Distributor } from '../../types';
 
 /* ------------------------------------------------------------------ */
-/* Local display type                                                  */
+/* Local types                                                         */
 /* ------------------------------------------------------------------ */
 
 type PerformanceLevel =
@@ -49,10 +50,14 @@ interface DisplayShop {
   location: string;
   region: string;
   country: string;
+
+  // Read-only, auto-computed by the backend
   performanceLevel: PerformanceLevel;
-  monthlyRevenue: number;
   bonusPercentage: number;
-  customers: number;
+  ownerBv: number;
+
+  // Editable business fields
+  monthlyRevenue: number;
   rating: number;
   status: ShopStatus;
   established: string;
@@ -67,10 +72,7 @@ interface ShopFormData {
   country: string;
   phone: string;
   email: string;
-  performance_level: PerformanceLevel;
   monthly_revenue: string;
-  bonus_percentage: string;
-  customers: string;
   rating: string;
   status: ShopStatus;
   established_date: string;
@@ -84,10 +86,7 @@ const emptyForm: ShopFormData = {
   country: 'Tanzania',
   phone: '',
   email: '',
-  performance_level: 'Seed',
   monthly_revenue: '0',
-  bonus_percentage: '3.50',
-  customers: '0',
   rating: '0',
   status: 'pending',
   established_date: new Date().toISOString().split('T')[0],
@@ -148,6 +147,9 @@ const statusColors: Record<string, string> = {
 const capitalize = (s: string) =>
   s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
 
+const formatTSh = (n: number) =>
+  `TSh ${Number(n || 0).toLocaleString()}`;
+
 /* ------------------------------------------------------------------ */
 /* Transform API -> Display                                            */
 /* ------------------------------------------------------------------ */
@@ -166,9 +168,9 @@ const toDisplayShop = (s: ApiShop): DisplayShop => {
     region: s.region,
     country: s.country,
     performanceLevel: s.performance_level as PerformanceLevel,
-    monthlyRevenue: Number(s.monthly_revenue ?? 0),
     bonusPercentage: Number(s.bonus_percentage ?? 0),
-    customers: s.customers ?? 0,
+    ownerBv: Number((s as any).owner_bv ?? 0),
+    monthlyRevenue: Number(s.monthly_revenue ?? 0),
     rating: Number(s.rating ?? 0),
     status: s.status,
     established: s.established_date,
@@ -189,6 +191,9 @@ interface ShopFormModalProps {
   distributors: Distributor[];
   isLoading?: boolean;
   mode: 'add' | 'edit';
+  currentLevel?: PerformanceLevel;
+  currentBonus?: number;
+  currentOwnerBv?: number;
 }
 
 const ShopFormModal: React.FC<ShopFormModalProps> = ({
@@ -199,6 +204,9 @@ const ShopFormModal: React.FC<ShopFormModalProps> = ({
   distributors,
   isLoading = false,
   mode,
+  currentLevel,
+  currentBonus,
+  currentOwnerBv,
 }) => {
   const [form, setForm] = useState<ShopFormData>(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -220,7 +228,9 @@ const ShopFormModal: React.FC<ShopFormModalProps> = ({
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
-  const handleDistributorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleDistributorChange = (
+    e: React.ChangeEvent<HTMLSelectElement>
+  ) => {
     setForm((prev) => ({
       ...prev,
       distributor: e.target.value ? Number(e.target.value) : null,
@@ -277,6 +287,7 @@ const ShopFormModal: React.FC<ShopFormModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Shop Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Shop Name <span className="text-red-500">*</span>
@@ -294,6 +305,7 @@ const ShopFormModal: React.FC<ShopFormModalProps> = ({
             )}
           </div>
 
+          {/* Distributor */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Distributor (Owner)
@@ -310,8 +322,13 @@ const ShopFormModal: React.FC<ShopFormModalProps> = ({
                 </option>
               ))}
             </select>
+            <p className="text-xs text-gray-400 mt-1">
+              Performance, owner BV, and level are auto-computed from this
+              owner's activity.
+            </p>
           </div>
 
+          {/* Location + Region */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -347,6 +364,7 @@ const ShopFormModal: React.FC<ShopFormModalProps> = ({
             </div>
           </div>
 
+          {/* Country + Phone */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -378,6 +396,7 @@ const ShopFormModal: React.FC<ShopFormModalProps> = ({
             </div>
           </div>
 
+          {/* Email */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Email
@@ -392,24 +411,8 @@ const ShopFormModal: React.FC<ShopFormModalProps> = ({
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Performance Level
-              </label>
-              <select
-                name="performance_level"
-                value={form.performance_level}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-              >
-                {Object.keys(performanceConfig).map((level) => (
-                  <option key={level} value={level}>
-                    {level}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {/* Status + Established */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Status
@@ -444,7 +447,41 @@ const ShopFormModal: React.FC<ShopFormModalProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Auto-computed info */}
+          {mode === 'edit' && currentLevel && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Info size={16} className="text-blue-600" />
+                <p className="text-sm font-medium text-blue-800">
+                  Auto-computed from owner's activity
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-3 text-xs">
+                <div>
+                  <p className="text-gray-500">Owner BV</p>
+                  <p className="font-bold text-blue-700">
+                    {currentOwnerBv ?? 0}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Level</p>
+                  <p className="font-bold text-blue-700">{currentLevel}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Bonus</p>
+                  <p className="font-bold text-blue-700">
+                    {currentBonus ?? 0}%
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-blue-600">
+                Changing the owner triggers a recompute on save.
+              </p>
+            </div>
+          )}
+
+          {/* Editable metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Monthly Revenue
@@ -453,31 +490,6 @@ const ShopFormModal: React.FC<ShopFormModalProps> = ({
                 type="number"
                 name="monthly_revenue"
                 value={form.monthly_revenue}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Bonus %
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                name="bonus_percentage"
-                value={form.bonus_percentage}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Customers
-              </label>
-              <input
-                type="number"
-                name="customers"
-                value={form.customers}
                 onChange={handleChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
               />
@@ -498,6 +510,7 @@ const ShopFormModal: React.FC<ShopFormModalProps> = ({
             </div>
           </div>
 
+          {/* Actions */}
           <div className="flex gap-3 pt-4 border-t border-amber-100/30">
             <button
               type="submit"
@@ -629,6 +642,7 @@ const Shops: React.FC = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   /* ---------- Load shops ---------- */
   const loadShops = async () => {
@@ -636,8 +650,9 @@ const Shops: React.FC = () => {
     setError(null);
     try {
       const response = await shopAPI.getAll();
-      // shopAPI.getAll now returns Shop[] directly
-      const data = Array.isArray(response) ? response : (response as any).results || [];
+      const data = Array.isArray(response)
+        ? response
+        : (response as any).results || [];
       setShops(data.map(toDisplayShop));
     } catch (err: any) {
       console.error('Failed to load shops:', err);
@@ -651,11 +666,13 @@ const Shops: React.FC = () => {
     }
   };
 
-  /* ---------- Load distributors (for the form dropdown) ---------- */
+  /* ---------- Load distributors ---------- */
   const loadDistributors = async () => {
     try {
       const data = await distributorAPI.getAll();
-      setDistributors(Array.isArray(data) ? data : (data as any)?.results || []);
+      setDistributors(
+        Array.isArray(data) ? data : (data as any)?.results || []
+      );
     } catch (err) {
       console.error('Failed to load distributors:', err);
       setDistributors([]);
@@ -684,10 +701,7 @@ const Shops: React.FC = () => {
         country: form.country,
         phone: form.phone,
         email: form.email || null,
-        performance_level: form.performance_level,
         monthly_revenue: Number(form.monthly_revenue) || 0,
-        bonus_percentage: Number(form.bonus_percentage) || 0,
-        customers: Number(form.customers) || 0,
         rating: Number(form.rating) || 0,
         status: form.status,
         established_date: form.established_date,
@@ -720,10 +734,7 @@ const Shops: React.FC = () => {
         country: form.country,
         phone: form.phone,
         email: form.email || null,
-        performance_level: form.performance_level,
         monthly_revenue: Number(form.monthly_revenue) || 0,
-        bonus_percentage: Number(form.bonus_percentage) || 0,
-        customers: Number(form.customers) || 0,
         rating: Number(form.rating) || 0,
         status: form.status,
         established_date: form.established_date,
@@ -762,25 +773,53 @@ const Shops: React.FC = () => {
     }
   };
 
+  const handleRecalculateAll = async () => {
+    if (
+      !window.confirm(
+        'Recalculate owner BV and performance for every shop? This may take a moment.'
+      )
+    ) {
+      return;
+    }
+    setIsRecalculating(true);
+    try {
+      await shopAPI.recomputePerformance();
+      await loadShops();
+    } catch (err) {
+      console.error('Recalculate failed:', err);
+      alert('Failed to recalculate performance.');
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
+
   /* ---------- Derived ---------- */
 
-  const levels = ['All', ...Array.from(new Set(shops.map((s) => s.performanceLevel)))];
-  const statuses = ['All', ...Array.from(new Set(shops.map((s) => s.status)))];
+  const levels = [
+    'All',
+    ...Array.from(new Set(shops.map((s) => s.performanceLevel))),
+  ];
+  const statuses = [
+    'All',
+    ...Array.from(new Set(shops.map((s) => s.status))),
+  ];
 
   const filteredShops = shops.filter((s) => {
     const matchesSearch =
       s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.owner.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.location.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesLevel = filterLevel === 'All' || s.performanceLevel === filterLevel;
-    const matchesStatus = filterStatus === 'All' || s.status === filterStatus;
+    const matchesLevel =
+      filterLevel === 'All' || s.performanceLevel === filterLevel;
+    const matchesStatus =
+      filterStatus === 'All' || s.status === filterStatus;
     return matchesSearch && matchesLevel && matchesStatus;
   });
 
   const totalShops = shops.length;
   const activeShops = shops.filter((s) => s.status === 'active').length;
+  const totalOwnerBv = shops.reduce((sum, s) => sum + s.ownerBv, 0);
   const totalRevenue = shops.reduce((sum, s) => sum + s.monthlyRevenue, 0);
-  const goldCrownShops = shops.filter((s) => s.performanceLevel === 'Gold Crown').length;
 
   const editInitialData: ShopFormData | null = selectedShop
     ? {
@@ -790,10 +829,7 @@ const Shops: React.FC = () => {
         country: selectedShop.country,
         phone: selectedShop.phone,
         email: selectedShop.email,
-        performance_level: selectedShop.performanceLevel,
         monthly_revenue: selectedShop.monthlyRevenue.toString(),
-        bonus_percentage: selectedShop.bonusPercentage.toString(),
-        customers: selectedShop.customers.toString(),
         rating: selectedShop.rating.toString(),
         status: selectedShop.status,
         established_date: selectedShop.established,
@@ -821,7 +857,20 @@ const Shops: React.FC = () => {
             Manage all OMA Flowers shop locations
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={handleRecalculateAll}
+            disabled={isRecalculating}
+            className="flex items-center gap-2 px-4 py-2 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors text-sm font-medium disabled:opacity-50"
+            title="Recompute every shop's owner BV and level"
+          >
+            {isRecalculating ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <RefreshCw size={16} />
+            )}
+            Recalc Performance
+          </button>
           <button
             onClick={loadShops}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
@@ -858,7 +907,9 @@ const Shops: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Total Shops</p>
-              <h3 className="text-2xl font-bold text-gray-800">{totalShops}</h3>
+              <h3 className="text-2xl font-bold text-gray-800">
+                {totalShops}
+              </h3>
             </div>
             <div className="p-2.5 bg-amber-50 rounded-lg">
               <Store className="text-amber-500" size={20} />
@@ -869,7 +920,9 @@ const Shops: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Active Shops</p>
-              <h3 className="text-2xl font-bold text-green-600">{activeShops}</h3>
+              <h3 className="text-2xl font-bold text-green-600">
+                {activeShops}
+              </h3>
             </div>
             <div className="p-2.5 bg-green-50 rounded-lg">
               <TrendingUp className="text-green-500" size={20} />
@@ -879,26 +932,26 @@ const Shops: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-amber-200/30 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Monthly Revenue</p>
+              <p className="text-sm text-gray-500">Total Owner BV</p>
               <h3 className="text-2xl font-bold text-blue-600">
-                TSh {(totalRevenue / 1000).toFixed(1)}K
+                {totalOwnerBv.toLocaleString()}
               </h3>
             </div>
             <div className="p-2.5 bg-blue-50 rounded-lg">
-              <DollarSign className="text-blue-500" size={20} />
+              <Award className="text-blue-500" size={20} />
             </div>
           </div>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-amber-200/30 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Gold Crown</p>
-              <h3 className="text-2xl font-bold text-amber-600">
-                {goldCrownShops}
+              <p className="text-sm text-gray-500">Total Revenue</p>
+              <h3 className="text-2xl font-bold text-purple-600">
+                {formatTSh(totalRevenue)}
               </h3>
             </div>
-            <div className="p-2.5 bg-amber-50 rounded-lg">
-              <Crown className="text-amber-500" size={20} />
+            <div className="p-2.5 bg-purple-50 rounded-lg">
+              <DollarSign className="text-purple-500" size={20} />
             </div>
           </div>
         </div>
@@ -922,6 +975,9 @@ const Shops: React.FC = () => {
             </div>
           ))}
         </div>
+        <p className="text-xs text-gray-400 mt-2">
+          Levels are auto-computed from the owner's product BV.
+        </p>
       </div>
 
       {/* Filters */}
@@ -942,7 +998,7 @@ const Shops: React.FC = () => {
         <select
           value={filterLevel}
           onChange={(e) => setFilterLevel(e.target.value)}
-          className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white min-w-[150px]"
+          className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white min-w-[150px]"
         >
           {levels.map((level) => (
             <option key={level} value={level}>
@@ -953,7 +1009,7 @@ const Shops: React.FC = () => {
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white min-w-[130px]"
+          className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white min-w-[130px]"
         >
           {statuses.map((status) => (
             <option key={status} value={status}>
@@ -986,7 +1042,8 @@ const Shops: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredShops.map((shop) => {
             const config =
-              performanceConfig[shop.performanceLevel] || performanceConfig.Seed;
+              performanceConfig[shop.performanceLevel] ||
+              performanceConfig.Seed;
             return (
               <div
                 key={shop.id}
@@ -998,7 +1055,9 @@ const Shops: React.FC = () => {
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`p-2.5 rounded-lg border ${config.bgColor}`}>
+                    <div
+                      className={`p-2.5 rounded-lg border ${config.bgColor}`}
+                    >
                       <span className={config.color}>{config.icon}</span>
                     </div>
                     <div className="min-w-0">
@@ -1012,24 +1071,26 @@ const Shops: React.FC = () => {
                   </div>
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      statusColors[shop.status] || 'bg-gray-100 text-gray-600'
+                      statusColors[shop.status] ||
+                      'bg-gray-100 text-gray-600'
                     }`}
                   >
                     {capitalize(shop.status)}
                   </span>
                 </div>
 
+                {/* Owner BV · Revenue · Bonus */}
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <div className="text-center p-2 bg-amber-50/50 rounded-lg">
-                    <p className="text-xs text-gray-500">Revenue</p>
+                    <p className="text-xs text-gray-500">Owner BV</p>
                     <p className="text-sm font-bold text-amber-600">
-                      TSh {shop.monthlyRevenue.toLocaleString()}
+                      {shop.ownerBv.toLocaleString()}
                     </p>
                   </div>
                   <div className="text-center p-2 bg-blue-50/50 rounded-lg">
-                    <p className="text-xs text-gray-500">Customers</p>
+                    <p className="text-xs text-gray-500">Revenue</p>
                     <p className="text-sm font-bold text-blue-600">
-                      {shop.customers}
+                      {formatTSh(shop.monthlyRevenue)}
                     </p>
                   </div>
                   <div className="text-center p-2 bg-green-50/50 rounded-lg">
@@ -1052,7 +1113,10 @@ const Shops: React.FC = () => {
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Star size={14} className="text-yellow-400 fill-yellow-400" />
+                    <Star
+                      size={14}
+                      className="text-yellow-400 fill-yellow-400"
+                    />
                     <span className="text-xs font-medium text-gray-600">
                       {shop.rating}
                     </span>
@@ -1069,7 +1133,10 @@ const Shops: React.FC = () => {
                     }}
                     title="View"
                   >
-                    <Eye size={16} className="text-gray-400 hover:text-amber-600" />
+                    <Eye
+                      size={16}
+                      className="text-gray-400 hover:text-amber-600"
+                    />
                   </button>
                   <button
                     className="p-1.5 hover:bg-amber-50 rounded-lg transition-colors"
@@ -1080,7 +1147,10 @@ const Shops: React.FC = () => {
                     }}
                     title="Edit"
                   >
-                    <Edit size={16} className="text-gray-400 hover:text-amber-600" />
+                    <Edit
+                      size={16}
+                      className="text-gray-400 hover:text-amber-600"
+                    />
                   </button>
                   <button
                     className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
@@ -1091,7 +1161,10 @@ const Shops: React.FC = () => {
                     }}
                     title="Delete"
                   >
-                    <Trash2 size={16} className="text-gray-400 hover:text-red-600" />
+                    <Trash2
+                      size={16}
+                      className="text-gray-400 hover:text-red-600"
+                    />
                   </button>
                 </div>
               </div>
@@ -1152,17 +1225,23 @@ const Shops: React.FC = () => {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-amber-50/50 rounded-lg p-3 text-center">
+                  <p className="text-xs text-gray-500">Owner BV</p>
+                  <p className="text-lg font-bold text-amber-600">
+                    {selectedShop.ownerBv.toLocaleString()}
+                  </p>
+                </div>
                 <div className="bg-amber-50/50 rounded-lg p-3 text-center">
                   <p className="text-xs text-gray-500">Monthly Revenue</p>
                   <p className="text-lg font-bold text-amber-600">
-                    TSh {selectedShop.monthlyRevenue.toLocaleString()}
+                    {formatTSh(selectedShop.monthlyRevenue)}
                   </p>
                 </div>
-                <div className="bg-blue-50/50 rounded-lg p-3 text-center">
-                  <p className="text-xs text-gray-500">Customers</p>
-                  <p className="text-lg font-bold text-blue-600">
-                    {selectedShop.customers}
+                <div className="bg-green-50/50 rounded-lg p-3 text-center">
+                  <p className="text-xs text-gray-500">Bonus</p>
+                  <p className="text-lg font-bold text-green-600">
+                    {selectedShop.bonusPercentage}%
                   </p>
                 </div>
                 <div className="bg-yellow-50/50 rounded-lg p-3 text-center">
@@ -1185,7 +1264,9 @@ const Shops: React.FC = () => {
                     <p className="font-semibold text-gray-800">
                       {selectedShop.owner}
                     </p>
-                    <p className="text-sm text-gray-500">{selectedShop.phone}</p>
+                    <p className="text-sm text-gray-500">
+                      {selectedShop.phone}
+                    </p>
                     <p className="text-sm text-gray-500">
                       {selectedShop.email || 'No email'}
                     </p>
@@ -1276,6 +1357,9 @@ const Shops: React.FC = () => {
         distributors={distributors}
         isLoading={isSubmitting}
         mode="edit"
+        currentLevel={selectedShop?.performanceLevel}
+        currentBonus={selectedShop?.bonusPercentage}
+        currentOwnerBv={selectedShop?.ownerBv}
       />
 
       {/* Delete Modal */}

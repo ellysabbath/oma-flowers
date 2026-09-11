@@ -52,7 +52,7 @@ export const cartAPI = {
     }
   },
 
-  /** Same as getAll but wrapped in a paginated envelope (handy for reuse). */
+  /** Same as getAll but wrapped in a paginated envelope. */
   getAllPaginated: async (params?: any): Promise<PaginatedResponse<Cart>> => {
     const results = await cartAPI.getAll(params);
     return {
@@ -167,20 +167,19 @@ export const cartAPI = {
    */
   getOrCreateForUser: async (
     userId: number | null,
-    sessionKey?: string | null
+    sessionKey?: string | null,
+    distributorId?: number | null
   ): Promise<Cart> => {
     const params: any = { status: 'active' };
     if (userId) params.user = userId;
     if (sessionKey) params.session_key = sessionKey;
 
     const carts = await cartAPI.getAll(params);
-    if (carts.length > 0) {
-      // Return the most recently updated active cart
-      return carts[0];
-    }
+    if (carts.length > 0) return carts[0];
 
     return cartAPI.create({
       user_id: userId ?? null,
+      distributor_id: distributorId ?? null,
       session_key: sessionKey ?? null,
       status: 'active',
     });

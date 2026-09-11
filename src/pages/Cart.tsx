@@ -11,6 +11,7 @@ import {
   Loader2,
   AlertCircle,
   Flower2,
+  Award,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cartAPI } from '../api/cart';
@@ -25,7 +26,6 @@ const num = (v: number | string | undefined | null): number =>
 
 const FALLBACK_ICON_SIZE = 32;
 
-/* Persistent guest session token for anonymous carts */
 const getOrCreateSessionKey = (): string => {
   const KEY = 'cart_session_key';
   let sk = localStorage.getItem(KEY);
@@ -36,13 +36,28 @@ const getOrCreateSessionKey = (): string => {
   return sk;
 };
 
-/* Try to read current user id from localStorage (set at login) */
 const getCurrentUserId = (): number | null => {
   try {
     const raw = localStorage.getItem('user');
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return parsed?.id ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const getCurrentDistributorId = (): number | null => {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return (
+      parsed?.distributor_id ??
+      parsed?.distributor?.id ??
+      parsed?.distributor_profile?.id ??
+      null
+    );
   } catch {
     return null;
   }
@@ -56,7 +71,7 @@ const Cart: React.FC = () => {
   const [cart, setCart] = useState<ApiCart | null>(null);
   const [items, setItems] = useState<ApiCartItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busyId, setBusyId] = useState<number | null>(null); // per-item spinner
+  const [busyId, setBusyId] = useState<number | null>(null);
   const [clearing, setClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,8 +82,14 @@ const Cart: React.FC = () => {
     try {
       const userId = getCurrentUserId();
       const sessionKey = userId ? null : getOrCreateSessionKey();
+      const distributorId = getCurrentDistributorId();
 
-      const activeCart = await cartAPI.getOrCreateForUser(userId, sessionKey);
+      const activeCart = await cartAPI.getOrCreateForUser(
+        userId,
+        sessionKey,
+        distributorId
+      );
+
       setCart(activeCart);
       setItems(activeCart.items || []);
     } catch (err: any) {
@@ -87,7 +108,7 @@ const Cart: React.FC = () => {
     loadCart();
   }, [loadCart]);
 
-  /* ---------- Refresh from server after every mutation ---------- */
+  /* ---------- Refresh ---------- */
   const refresh = async () => {
     if (!cart) return;
     try {
@@ -106,8 +127,6 @@ const Cart: React.FC = () => {
     if (nextQty < 1) return;
 
     setBusyId(item.id);
-
-    // Optimistic update for snappy UX
     setItems((prev) =>
       prev.map((i) =>
         i.id === item.id ? { ...i, quantity: nextQty } : i
@@ -119,7 +138,7 @@ const Cart: React.FC = () => {
       await refresh();
     } catch (err) {
       console.error('Failed to update quantity:', err);
-      await refresh(); // revert by re-fetching
+      await refresh();
     } finally {
       setBusyId(null);
     }
@@ -131,7 +150,6 @@ const Cart: React.FC = () => {
     if (!window.confirm(`Remove "${item.product_name}" from your cart?`)) return;
 
     setBusyId(item.id);
-    // Optimistic removal
     setItems((prev) => prev.filter((i) => i.id !== item.id));
 
     try {
@@ -169,6 +187,15 @@ const Cart: React.FC = () => {
   const totalBV = items.reduce((sum, i) => sum + (i.bv || 0) * i.quantity, 0);
   const shipping = subtotal > 100000 || subtotal === 0 ? 0 : 5000;
   const total = subtotal + shipping;
+
+  /* Unique sellers in this cart (for the summary strip) */
+  const sellers = Array.from(
+    new Set(
+      items
+        .map((i) => (i as any).seller_name)
+        .filter((n: any): n is string => Boolean(n))
+    )
+  );
 
   /* ---------- Loading ---------- */
   if (loading) {
@@ -225,7 +252,7 @@ const Cart: React.FC = () => {
   return (
     <div className="min-h-screen bg-amber-50/30 py-12">
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold text-gray-800">Shopping Cart</h1>
           <button
             onClick={clearCart}
@@ -241,14 +268,36 @@ const Cart: React.FC = () => {
           </button>
         </div>
 
+        {/* Summary strip — sellers in this order */}
+        {sellers.length > 0 && (
+          <div className="mb-6 bg-gradient-to-r from-amber-50 to-amber-100/50 border border-amber-200/60 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <Award size={22} className="text-amber-600 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-gray-800">
+                This order credits{' '}
+                {sellers.length === 1
+                  ? '1 distributor'
+                  : `${sellers.length} distributors`}
+              </p>
+              <p className="text-xs text-amber-700 truncate">
+                {sellers.join(' · ')}
+              </p>
+            </div>
+            <div className="text-left sm:text-right shrink-0">
+              <p className="text-xs text-gray-500">Total BV</p>
+              <p className="text-sm font-bold text-amber-700">{totalBV}</p>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Cart items */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-sm border border-amber-200/30 overflow-hidden">
               <div className="divide-y divide-amber-100/30">
-                {items.map((item) => (
+                {items.map((item: any) => (
                   <div key={item.id} className="p-4 flex gap-4">
-                    {/* Product image or flower icon */}
+                    {/* Image or icon */}
                     <div className="w-24 h-24 rounded-lg overflow-hidden bg-amber-50 flex items-center justify-center shrink-0">
                       {item.product_picture ? (
                         <img
@@ -268,7 +317,22 @@ const Cart: React.FC = () => {
                       <h3 className="font-semibold text-gray-800 truncate">
                         {item.product_name}
                       </h3>
-                      <p className="text-xs text-gray-400">{item.product_sku}</p>
+                      <p className="text-xs text-gray-400">
+                        {item.product_sku}
+                      </p>
+
+                      {/* 👇 Seller line */}
+                      <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1 truncate">
+                        <Award size={12} />
+                        {item.seller_name
+                          ? `Sold by ${item.seller_name}${
+                              item.seller_rank
+                                ? ` · ${item.seller_rank}`
+                                : ''
+                            }`
+                          : 'OMA Flowers'}
+                      </p>
+
                       <p className="text-sm text-amber-600 font-bold mt-1">
                         TSh {num(item.price).toLocaleString()}
                       </p>

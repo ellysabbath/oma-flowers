@@ -17,10 +17,12 @@ import {
   Save,
   Upload,
   Image as ImageIcon,
+  Award,
 } from 'lucide-react';
 import { productAPI } from '../../api/products';
 import { categoryAPI } from '../../api/categories';
-import type { Product, Category } from '../../types';
+import { distributorAPI } from '../../api/distributors';
+import type { Product, Category, Distributor } from '../../types';
 
 /* ------------------------------------------------------------------ */
 /* Base64 helpers                                                      */
@@ -35,7 +37,7 @@ const fileToBase64 = (file: File): Promise<string> =>
   });
 
 /* ------------------------------------------------------------------ */
-/* Reusable Image Uploader (base64, no size limit)                     */
+/* Reusable Image Uploader                                             */
 /* ------------------------------------------------------------------ */
 
 interface ImageUploaderProps {
@@ -155,6 +157,9 @@ const formatCategoryOption = (cat: Category) =>
     cat.price
   ).toLocaleString()}`;
 
+const formatDistributorOption = (d: Distributor) =>
+  `${d.full_name} (${d.rank})${d.user?.email ? ` — ${d.user.email}` : ''}`;
+
 const formatPrice = (price: number | string | null | undefined) =>
   new Intl.NumberFormat('en-TZ', {
     style: 'currency',
@@ -166,14 +171,7 @@ const formatPrice = (price: number | string | null | undefined) =>
 const num = (v: number | string | null | undefined): number =>
   v === null || v === undefined ? 0 : Number(v);
 
-/**
- * Compose a suggested SKU like "CCA-0001" based on:
- *  - the picked category's code
- *  - how many products already exist in that category (across allProducts)
- *
- * The suggestion is not authoritative — the backend re-verifies and can
- * bump if this exact SKU already exists.
- */
+/** Compose a suggested SKU like "CCA-0001" based on the picked category */
 const suggestSku = (
   category: Category | undefined,
   allProducts: Product[]
@@ -195,6 +193,7 @@ interface AddProductModalProps {
   onClose: () => void;
   onSave: (data: any) => Promise<void>;
   categories: Category[];
+  distributors: Distributor[];
   allProducts: Product[];
   isLoading?: boolean;
 }
@@ -204,6 +203,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
   onClose,
   onSave,
   categories,
+  distributors,
   allProducts,
   isLoading = false,
 }) => {
@@ -212,6 +212,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
     sku: '',
     description: '',
     category: '',
+    seller: '',
     price: '',
     bv: '',
     stock: '',
@@ -233,7 +234,6 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
 
   if (!isOpen) return null;
 
-  /* ---- Field change (generic) ---- */
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -244,13 +244,11 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
-  /* ---- SKU change marks it as "user touched" ---- */
   const handleSkuChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSkuTouched(true);
     handleChange(e);
   };
 
-  /* ---- Category change: auto-fill price, bv, and SKU ---- */
   const handleCategoryChange = (
     e: React.ChangeEvent<HTMLSelectElement>
   ) => {
@@ -259,22 +257,15 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
 
     setFormData((prev) => {
       const next = { ...prev, category: value };
-
-      // Auto-fill price/BV only if still empty
       if (picked && !prev.price) next.price = String(picked.price);
       if (picked && !prev.bv) next.bv = String(picked.bv);
-
-      // Auto-suggest SKU if the admin hasn't typed one
-      if (picked && !skuTouched) {
-        next.sku = suggestSku(picked, allProducts);
-      }
+      if (picked && !skuTouched) next.sku = suggestSku(picked, allProducts);
       return next;
     });
 
     if (errors.category) setErrors((prev) => ({ ...prev, category: '' }));
   };
 
-  /* ---- Preview what will be saved if SKU field is left blank ---- */
   const previewSku = (() => {
     if (skuTouched && formData.sku) return null;
     const picked = categories.find((c) => c.id === Number(formData.category));
@@ -296,18 +287,15 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
     }
 
     try {
-      // If SKU is blank and we have a suggestion, use it; otherwise let
-      // the backend generate one by sending an empty string.
       const finalSku =
-        (formData.sku && formData.sku.trim()) ||
-        previewSku ||
-        '';
+        (formData.sku && formData.sku.trim()) || previewSku || '';
 
       await onSave({
         name: formData.name,
         sku: finalSku ? finalSku.toUpperCase() : '',
         description: formData.description,
         category: parseInt(formData.category),
+        seller: formData.seller ? parseInt(formData.seller) : null,
         price: parseFloat(formData.price),
         bv: parseInt(formData.bv),
         stock: parseInt(formData.stock) || 0,
@@ -350,7 +338,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
             }
           />
 
-          {/* Category first — it drives price / BV / SKU auto-fill */}
+          {/* Category */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Category <span className="text-red-500">*</span>
@@ -373,6 +361,33 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
             {errors.category && (
               <p className="text-sm text-red-500 mt-1">{errors.category}</p>
             )}
+          </div>
+
+          {/* Seller */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Seller
+              <span className="text-xs text-gray-400 ml-2">
+                (distributor who earns the BV)
+              </span>
+            </label>
+            <select
+              name="seller"
+              value={formData.seller}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+            >
+              <option value="">No seller (no BV credit)</option>
+              {distributors.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {formatDistributorOption(d)}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              Every time this product is sold, the seller's PBV and CGV rise
+              automatically.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -413,7 +428,10 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
               />
               {!skuTouched && previewSku && (
                 <p className="text-xs text-gray-400 mt-1">
-                  Will use: <span className="font-medium text-gray-600">{previewSku}</span>
+                  Will use:{' '}
+                  <span className="font-medium text-gray-600">
+                    {previewSku}
+                  </span>
                 </p>
               )}
               {errors.sku && (
@@ -543,6 +561,7 @@ interface EditProductModalProps {
   onSave: (data: any) => Promise<void>;
   product: Product | null;
   categories: Category[];
+  distributors: Distributor[];
   isLoading?: boolean;
 }
 
@@ -552,6 +571,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({
   onSave,
   product,
   categories,
+  distributors,
   isLoading = false,
 }) => {
   const emptyState = {
@@ -559,6 +579,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({
     sku: '',
     description: '',
     category: '',
+    seller: '',
     price: '',
     bv: '',
     stock: '',
@@ -575,6 +596,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({
         sku: product.sku || '',
         description: product.description || '',
         category: product.category?.toString() || '',
+        seller: product.seller?.toString() || '',
         price: product.price?.toString() || '',
         bv: product.bv?.toString() || '',
         stock: product.stock?.toString() || '',
@@ -619,6 +641,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({
         sku: formData.sku.toUpperCase(),
         description: formData.description,
         category: parseInt(formData.category),
+        seller: formData.seller ? parseInt(formData.seller) : null,
         price: parseFloat(formData.price),
         bv: parseInt(formData.bv),
         stock: parseInt(formData.stock) || 0,
@@ -750,6 +773,32 @@ const EditProductModal: React.FC<EditProductModalProps> = ({
                 <option value="coming_soon">Coming Soon</option>
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Seller
+              <span className="text-xs text-gray-400 ml-2">
+                (distributor who earns the BV)
+              </span>
+            </label>
+            <select
+              name="seller"
+              value={formData.seller}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+            >
+              <option value="">No seller (no BV credit)</option>
+              {distributors.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {formatDistributorOption(d)}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              Every time this product is sold, the seller's PBV and CGV rise
+              automatically.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1041,6 +1090,18 @@ const ViewProductModal: React.FC<ViewProductModalProps> = ({
                   {product.category_class_type || 'N/A'}
                 </p>
                 <p className="text-sm">
+                  <span className="text-gray-500">Seller:</span>{' '}
+                  {product.seller_name ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Award size={14} className="text-amber-500" />
+                      {product.seller_name}
+                      {product.seller_rank ? ` · ${product.seller_rank}` : ''}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">No seller</span>
+                  )}
+                </p>
+                <p className="text-sm">
                   <span className="text-gray-500">Status:</span>
                   <span
                     className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -1076,9 +1137,11 @@ const Products: React.FC = () => {
   const [filterType, setFilterType] = useState('All');
   const [filterClass, setFilterClass] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
+  const [filterSeller, setFilterSeller] = useState('All');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [distributors, setDistributors] = useState<Distributor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'bv'>('name');
@@ -1095,9 +1158,10 @@ const Products: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [categoriesData, productsData] = await Promise.all([
+      const [categoriesData, productsData, distributorsData] = await Promise.all([
         categoryAPI.getAll(),
         productAPI.getAll(),
+        distributorAPI.getAll(),
       ]);
 
       const normalizedCategories: Category[] = Array.isArray(categoriesData)
@@ -1109,6 +1173,11 @@ const Products: React.FC = () => {
         ? productsData
         : (productsData as any)?.results || [];
       setProducts(normalizedProducts);
+
+      const normalizedDistributors: Distributor[] = Array.isArray(distributorsData)
+        ? distributorsData
+        : (distributorsData as any)?.results || [];
+      setDistributors(normalizedDistributors);
     } catch (err: any) {
       console.error('Error loading data:', err);
       let errorMessage = 'Failed to load products.';
@@ -1215,12 +1284,15 @@ const Products: React.FC = () => {
         filterClass === 'All' || p.category_class_type === filterClass;
       const matchesStatus =
         filterStatus === 'All' || p.status === filterStatus;
+      const matchesSeller =
+        filterSeller === 'All' || p.seller === Number(filterSeller);
       return (
         matchesSearch &&
         matchesCategory &&
         matchesType &&
         matchesClass &&
-        matchesStatus
+        matchesStatus &&
+        matchesSeller
       );
     })
     .sort((a, b) => {
@@ -1407,6 +1479,19 @@ const Products: React.FC = () => {
         </select>
 
         <select
+          value={filterSeller}
+          onChange={(e) => setFilterSeller(e.target.value)}
+          className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white min-w-[180px]"
+        >
+          <option value="All">All Sellers</option>
+          {distributors.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.full_name}
+            </option>
+          ))}
+        </select>
+
+        <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
           className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white min-w-[140px]"
@@ -1457,6 +1542,7 @@ const Products: React.FC = () => {
             filterCategory !== 'All' ||
             filterType !== 'All' ||
             filterClass !== 'All' ||
+            filterSeller !== 'All' ||
             filterStatus !== 'All'
               ? 'Try adjusting your filters'
               : 'Add your first product to get started'}
@@ -1499,6 +1585,16 @@ const Products: React.FC = () => {
                       {product.name}
                     </h3>
                     <p className="text-xs text-gray-400">{product.sku}</p>
+
+                    {product.seller_name && (
+                      <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1 truncate">
+                        <Award size={12} />
+                        {product.seller_name}
+                        {product.seller_rank
+                          ? ` · ${product.seller_rank}`
+                          : ''}
+                      </p>
+                    )}
                   </div>
                   <span
                     className={`px-2.5 py-1 rounded-full text-xs font-medium border shrink-0 ml-2 ${
@@ -1606,6 +1702,7 @@ const Products: React.FC = () => {
         onClose={() => setAddModalOpen(false)}
         onSave={handleAddProduct}
         categories={categories}
+        distributors={distributors}
         allProducts={products}
         isLoading={isSubmitting}
       />
@@ -1616,6 +1713,7 @@ const Products: React.FC = () => {
         onSave={handleEditProduct}
         product={selectedProduct}
         categories={categories}
+        distributors={distributors}
         isLoading={isSubmitting}
       />
 

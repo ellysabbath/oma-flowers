@@ -1,5 +1,6 @@
-// src/pages/admin/Orders.tsx
-import React, { useState, useEffect } from 'react';
+// src/pages/admin/Orders.tsx — full file with empty-cart filtering
+
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search,
   Filter,
@@ -17,6 +18,11 @@ import {
   User2Icon,
   RefreshCw,
   ShoppingCart,
+  Store,
+  Award,
+  Copy,
+  Check,
+  EyeOff,       // 👈 NEW
 } from 'lucide-react';
 
 import { cartAPI } from '../../api/cart';
@@ -36,8 +42,30 @@ import type {
 /* Types                                                               */
 /* ------------------------------------------------------------------ */
 
+interface SellerPBV {
+  sellerId: number | null;
+  sellerName: string;
+  sellerRank: string | null;
+  sellerBonusPercentage: number | null;
+  totalBV: number;
+  totalPBV: number;
+  totalAmount: number;
+  itemsCount: number;
+  items: {
+    productId: number;
+    productName: string;
+    productCode: string;
+    quantity: number;
+    price: number;
+    bv: number;
+    subtotal: number;
+    pbv: number;
+  }[];
+}
+
 interface DisplayCart {
   id: number;
+  code: string;
   sessionKey: string | null;
   customerId: number | null;
   distributorId: number | null;
@@ -57,9 +85,14 @@ interface DisplayCart {
     price: number;
     bv: number;
     subtotal: number;
+    sellerId: number | null;
+    sellerName: string | null;
+    sellerRank: string | null;
   }[];
+  sellers: SellerPBV[];
   subtotal: number;
   totalBV: number;
+  totalPBV: number;
   totalItems: number;
   status: 'Active' | 'Converted' | 'Abandoned' | 'Expired';
   createdAt: string;
@@ -95,22 +128,68 @@ const formatDate = (iso: string) => {
 };
 
 /* ------------------------------------------------------------------ */
+/* PBV Helper                                                          */
+/* ------------------------------------------------------------------ */
+
+const calcPBV = (
+  bv: number,
+  bonusPercentage: number | null | undefined
+): number => {
+  const pct = num(bonusPercentage);
+  if (!pct || pct <= 0) return bv;
+  return Math.round(bv * (pct / 100));
+};
+
+/* ------------------------------------------------------------------ */
+/* Copy button                                                         */
+/* ------------------------------------------------------------------ */
+
+const CopyCodeButton: React.FC<{ code: string }> = ({ code }) => {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // ignore
+    }
+  };
+
+  return (
+    <button
+      onClick={copy}
+      title={copied ? 'Copied!' : 'Copy code'}
+      className="ml-1 p-0.5 rounded hover:bg-amber-100 transition-colors"
+    >
+      {copied ? (
+        <Check size={11} className="text-green-600" />
+      ) : (
+        <Copy size={11} className="text-gray-400" />
+      )}
+    </button>
+  );
+};
+
+/* ------------------------------------------------------------------ */
 /* Component                                                           */
 /* ------------------------------------------------------------------ */
 
 const Orders: React.FC = () => {
-  /* ---------- List state ---------- */
   const [carts, setCarts] = useState<DisplayCart[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
 
-  /* ---------- Modal state ---------- */
+  // 👈 NEW — toggle to show/hide empty carts
+  const [hideEmpty, setHideEmpty] = useState(true);
+
   const [selectedCart, setSelectedCart] = useState<DisplayCart | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  /* ---------- Dropdown data ---------- */
   const [customers, setCustomers] = useState<UserType[]>([]);
   const [distributorsList, setDistributorsList] = useState<Distributor[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -121,7 +200,6 @@ const Orders: React.FC = () => {
 
   const [submitting, setSubmitting] = useState(false);
 
-  /* ---------- Create form ---------- */
   interface CartFormData {
     user_id: number | null;
     distributor_id: number | null;
@@ -208,7 +286,7 @@ const Orders: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const list = await cartAPI.getAll();  // returns Cart[]
+      const list = await cartAPI.getAll();
       const rawCarts: ApiCart[] = Array.isArray(list) ? list : [];
 
       const transformed: DisplayCart[] = rawCarts.map((cart) => {
@@ -239,15 +317,64 @@ const Orders: React.FC = () => {
             price,
             bv: item.bv || 0,
             subtotal,
+            sellerId: (item as any).seller_id ?? null,
+            sellerName: (item as any).seller_name ?? null,
+            sellerRank: (item as any).seller_rank ?? null,
           };
         });
 
+        const sellerMap = new Map<string, SellerPBV>();
+
+        items.forEach((item) => {
+          const key =
+            item.sellerId != null ? `id-${item.sellerId}` : 'unassigned';
+          const sellerBonus =
+            (cart as any)?.distributor_bonus_percentage ?? null;
+
+          if (!sellerMap.has(key)) {
+            sellerMap.set(key, {
+              sellerId: item.sellerId,
+              sellerName: item.sellerName || 'Unassigned Seller',
+              sellerRank: item.sellerRank || null,
+              sellerBonusPercentage: sellerBonus,
+              totalBV: 0,
+              totalPBV: 0,
+              totalAmount: 0,
+              itemsCount: 0,
+              items: [],
+            });
+          }
+
+          const entry = sellerMap.get(key)!;
+          const pbv = calcPBV(item.bv * item.quantity, sellerBonus);
+
+          entry.totalBV += item.bv * item.quantity;
+          entry.totalPBV += pbv;
+          entry.totalAmount += item.subtotal;
+          entry.itemsCount += item.quantity;
+          entry.items.push({
+            productId: item.productId,
+            productName: item.productName,
+            productCode: item.productCode,
+            quantity: item.quantity,
+            price: item.price,
+            bv: item.bv,
+            subtotal: item.subtotal,
+            pbv,
+          });
+        });
+
+        const sellers = Array.from(sellerMap.values());
+
         const subtotal = num(cart.subtotal);
         const totalBV = num(cart.total_bv);
-        const totalItems = cart.total_items ?? items.reduce((s, i) => s + i.quantity, 0);
+        const totalPBV = sellers.reduce((s, x) => s + x.totalPBV, 0);
+        const totalItems =
+          cart.total_items ?? items.reduce((s, i) => s + i.quantity, 0);
 
         return {
           id: cart.id,
+          code: (cart as any).code || `#${cart.id}`,
           sessionKey: cart.session_key,
           customerId,
           distributorId,
@@ -261,8 +388,10 @@ const Orders: React.FC = () => {
             )}&background=amber&color=fff`,
           },
           items,
+          sellers,
           subtotal,
           totalBV,
+          totalPBV,
           totalItems,
           status: capitalize(cart.status) as DisplayCart['status'],
           createdAt: formatDate(cart.created_at),
@@ -389,7 +518,6 @@ const Orders: React.FC = () => {
     try {
       setSubmitting(true);
 
-      // 1) Create the cart
       const createdCart = await cartAPI.create({
         user_id: formData.user_id,
         distributor_id: formData.distributor_id,
@@ -398,7 +526,6 @@ const Orders: React.FC = () => {
         notes: formData.notes,
       } as any);
 
-      // 2) Add items to it
       for (const item of formData.items) {
         await cartAPI.addItem(createdCart.id, {
           product: item.product,
@@ -429,21 +556,42 @@ const Orders: React.FC = () => {
   /* Derived                                                             */
   /* ------------------------------------------------------------------ */
 
-  const filteredCarts = carts.filter((c) => {
-    const matchesSearch =
-      c.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.sessionKey?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'All' || c.status === filterStatus;
-    return matchesSearch && matchesStatus;
-  });
+  // Carts that actually have items
+  const nonEmptyCarts = useMemo(
+    () => carts.filter((c) => c.items.length > 0),
+    [carts]
+  );
+
+  // Apply hideEmpty + search + status filters
+  const filteredCarts = useMemo(() => {
+    const base = hideEmpty ? nonEmptyCarts : carts;
+    return base.filter((c) => {
+      const q = searchTerm.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        c.customer.name.toLowerCase().includes(q) ||
+        c.customer.email.toLowerCase().includes(q) ||
+        c.code.toLowerCase().includes(q) ||
+        (c.sessionKey?.toLowerCase().includes(q) ?? false);
+      const matchesStatus =
+        filterStatus === 'All' || c.status === filterStatus;
+      return matchesSearch && matchesStatus;
+    });
+  }, [carts, nonEmptyCarts, hideEmpty, searchTerm, filterStatus]);
 
   const totalCarts = carts.length;
+  const nonEmptyCount = nonEmptyCarts.length;
+  const emptyCount = totalCarts - nonEmptyCount;
+
   const activeCarts = carts.filter((c) => c.status === 'Active').length;
   const convertedCarts = carts.filter((c) => c.status === 'Converted').length;
   const abandonedCarts = carts.filter((c) => c.status === 'Abandoned').length;
-  const totalValue = carts.reduce((s, c) => s + c.subtotal, 0);
-  const totalBV = carts.reduce((s, c) => s + c.totalBV, 0);
+
+  // 👈 Stat totals only count carts with items (avoids empty-cart noise)
+  const statsBase = hideEmpty ? nonEmptyCarts : carts;
+  const totalValue = statsBase.reduce((s, c) => s + c.subtotal, 0);
+  const totalBV = statsBase.reduce((s, c) => s + c.totalBV, 0);
+  const totalPBV = statsBase.reduce((s, c) => s + c.totalPBV, 0);
 
   /* ------------------------------------------------------------------ */
   /* Loading / error                                                     */
@@ -485,7 +633,7 @@ const Orders: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Carts</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Manage shopping carts and track abandoned sessions
+            Manage shopping carts and track seller PBV
           </p>
         </div>
         <button
@@ -500,8 +648,8 @@ const Orders: React.FC = () => {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
-          label="Total Carts"
-          value={totalCarts}
+          label={hideEmpty ? 'Active Carts' : 'Total Carts'}
+          value={hideEmpty ? nonEmptyCount : totalCarts}
           icon={<ShoppingCart className="text-amber-500" size={20} />}
           bg="bg-amber-50"
         />
@@ -528,7 +676,7 @@ const Orders: React.FC = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard
           label="Total Cart Value"
           value={`TSh ${totalValue.toLocaleString()}`}
@@ -543,6 +691,13 @@ const Orders: React.FC = () => {
           icon={<Package className="text-purple-500" size={20} />}
           bg="bg-purple-50"
         />
+        <StatCard
+          label="Total PBV"
+          value={totalPBV}
+          valueClass="text-amber-600"
+          icon={<Award className="text-amber-500" size={20} />}
+          bg="bg-amber-50"
+        />
       </div>
 
       {/* Filters */}
@@ -554,12 +709,32 @@ const Orders: React.FC = () => {
           />
           <input
             type="text"
-            placeholder="Search by customer name, email, or session key..."
+            placeholder="Search by cart code, customer name, or email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white"
           />
         </div>
+
+        {/* 👈 NEW — toggle: hide empty carts */}
+        <button
+          type="button"
+          onClick={() => setHideEmpty((v) => !v)}
+          className={`px-4 py-2.5 border rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${
+            hideEmpty
+              ? 'bg-amber-50 border-amber-300 text-amber-700'
+              : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+          }`}
+          title={
+            hideEmpty
+              ? `Showing only carts with items (${nonEmptyCount})`
+              : `Showing all carts, including empty (${emptyCount} empty)`
+          }
+        >
+          <EyeOff size={16} />
+          {hideEmpty ? `Active Only (${nonEmptyCount})` : `All (${totalCarts})`}
+        </button>
+
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
@@ -571,6 +746,7 @@ const Orders: React.FC = () => {
           <option value="Abandoned">Abandoned</option>
           <option value="Expired">Expired</option>
         </select>
+
         <button
           onClick={() => fetchCarts()}
           className="px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
@@ -582,12 +758,29 @@ const Orders: React.FC = () => {
 
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-amber-200/30 overflow-hidden">
-        {carts.length === 0 ? (
+        {filteredCarts.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <ShoppingCart className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-            <p className="font-medium">No carts found</p>
+            <p className="font-medium">
+              {hideEmpty && emptyCount > 0
+                ? 'No carts with items yet'
+                : 'No carts found'}
+            </p>
             <p className="text-sm">
-              Carts will appear here once customers start shopping.
+              {hideEmpty && emptyCount > 0 ? (
+                <>
+                  {emptyCount} empty cart
+                  {emptyCount === 1 ? '' : 's'} hidden.{' '}
+                  <button
+                    onClick={() => setHideEmpty(false)}
+                    className="text-amber-600 underline hover:text-amber-700"
+                  >
+                    Show all
+                  </button>
+                </>
+              ) : (
+                'Carts will appear here once customers start shopping.'
+              )}
             </p>
           </div>
         ) : (
@@ -599,7 +792,7 @@ const Orders: React.FC = () => {
                     <Th>Cart</Th>
                     <Th>Customer</Th>
                     <Th className="hidden md:table-cell">Items</Th>
-                    <Th className="hidden lg:table-cell">BV</Th>
+                    <Th className="hidden lg:table-cell">Sellers / PBV</Th>
                     <Th>Status</Th>
                     <Th className="hidden sm:table-cell">Updated</Th>
                     <Th className="text-right">Value</Th>
@@ -614,15 +807,19 @@ const Orders: React.FC = () => {
                       onClick={() => setSelectedCart(cart)}
                     >
                       <td className="px-4 py-3">
-                        <p className="text-sm font-medium text-gray-800">
-                          #{cart.id}
-                        </p>
+                        <div className="flex items-center">
+                          <span className="font-mono text-sm font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                            {cart.code}
+                          </span>
+                          <CopyCodeButton code={cart.code} />
+                        </div>
                         {cart.sessionKey && (
-                          <p className="text-xs text-gray-400 truncate max-w-[140px]">
+                          <p className="text-xs text-gray-400 truncate max-w-[140px] mt-1">
                             {cart.sessionKey}
                           </p>
                         )}
                       </td>
+
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <img
@@ -643,9 +840,35 @@ const Orders: React.FC = () => {
                       <td className="px-4 py-3 text-sm text-gray-600 hidden md:table-cell">
                         {cart.totalItems} item{cart.totalItems === 1 ? '' : 's'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 hidden lg:table-cell">
-                        {cart.totalBV}
+
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        {cart.sellers.length === 0 ? (
+                          <span className="text-xs text-gray-400">
+                            No seller
+                          </span>
+                        ) : (
+                          <div className="space-y-1">
+                            {cart.sellers.map((s, idx) => (
+                              <div
+                                key={`${s.sellerId ?? 'none'}-${idx}`}
+                                className="flex items-center gap-1.5 text-xs"
+                              >
+                                <Store
+                                  size={12}
+                                  className="text-amber-500"
+                                />
+                                <span className="font-medium text-gray-700 truncate max-w-[110px]">
+                                  {s.sellerName}
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold">
+                                  PBV: {s.totalPBV}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </td>
+
                       <td className="px-4 py-3">
                         <select
                           value={cart.status}
@@ -668,6 +891,9 @@ const Orders: React.FC = () => {
                       <td className="px-4 py-3 text-right">
                         <p className="text-sm font-bold text-amber-600">
                           TSh {cart.subtotal.toLocaleString()}
+                        </p>
+                        <p className="text-[10px] text-gray-400">
+                          PBV: {cart.totalPBV}
                         </p>
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -703,21 +929,29 @@ const Orders: React.FC = () => {
                 </tbody>
               </table>
             </div>
-            <div className="px-4 py-3 border-t border-amber-100/30 text-sm text-gray-500">
-              Showing {filteredCarts.length} of {carts.length} carts
+            <div className="px-4 py-3 border-t border-amber-100/30 text-sm text-gray-500 flex items-center justify-between">
+              <span>
+                Showing {filteredCarts.length} of{' '}
+                {hideEmpty ? nonEmptyCount : totalCarts} carts
+              </span>
+              {hideEmpty && emptyCount > 0 && (
+                <span className="text-xs text-gray-400">
+                  {emptyCount} empty cart{emptyCount === 1 ? '' : 's'} hidden
+                </span>
+              )}
             </div>
           </>
         )}
       </div>
 
-      {/* ================= Cart Details Modal ================= */}
+      {/* ================= Cart Details Modal (unchanged) ================= */}
       {selectedCart && (
         <div
           className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
           onClick={() => setSelectedCart(null)}
         >
           <div
-            className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6 border-b border-amber-100/50 flex items-center justify-between">
@@ -725,7 +959,12 @@ const Orders: React.FC = () => {
                 <h3 className="text-xl font-bold text-gray-800">
                   Cart Details
                 </h3>
-                <p className="text-sm text-amber-600">Cart #{selectedCart.id}</p>
+                <p className="text-sm flex items-center gap-2">
+                  <span className="font-mono font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                    {selectedCart.code}
+                  </span>
+                  <CopyCodeButton code={selectedCart.code} />
+                </p>
               </div>
               <button
                 onClick={() => setSelectedCart(null)}
@@ -809,11 +1048,80 @@ const Orders: React.FC = () => {
                     <p className="text-sm text-gray-700">
                       Total BV: {selectedCart.totalBV}
                     </p>
+                    <p className="text-sm text-amber-700 font-semibold">
+                      Total PBV: {selectedCart.totalPBV}
+                    </p>
                     <p className="text-sm font-semibold text-amber-600">
                       Subtotal: TSh {selectedCart.subtotal.toLocaleString()}
                     </p>
                   </div>
                 </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
+                  <Award size={16} className="text-amber-500" />
+                  PBV per Seller
+                </p>
+                {selectedCart.sellers.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-gray-400 bg-gray-50 rounded-lg">
+                    No sellers associated with this cart.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {selectedCart.sellers.map((s, idx) => (
+                      <div
+                        key={`${s.sellerId ?? 'none'}-${idx}`}
+                        className="p-4 bg-amber-50/50 rounded-lg border border-amber-200/50"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Store size={16} className="text-amber-600" />
+                            <p className="font-semibold text-gray-800 text-sm">
+                              {s.sellerName}
+                            </p>
+                          </div>
+                          {s.sellerRank && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 font-medium">
+                              {s.sellerRank}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <p className="text-gray-500">BV</p>
+                            <p className="font-bold text-gray-800">
+                              {s.totalBV}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">PBV</p>
+                            <p className="font-bold text-amber-700">
+                              {s.totalPBV}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Items</p>
+                            <p className="font-bold text-gray-800">
+                              {s.itemsCount}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Amount</p>
+                            <p className="font-bold text-gray-800">
+                              TSh {s.totalAmount.toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                        {s.sellerBonusPercentage != null && (
+                          <p className="text-[10px] text-gray-400 mt-2">
+                            Bonus %: {s.sellerBonusPercentage}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -827,11 +1135,17 @@ const Orders: React.FC = () => {
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">
                           Product
                         </th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">
+                          Seller
+                        </th>
                         <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">
                           Qty
                         </th>
                         <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">
                           BV
+                        </th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">
+                          PBV
                         </th>
                         <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">
                           Price
@@ -842,59 +1156,89 @@ const Orders: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {selectedCart.items.map((item, idx) => (
-                        <tr key={idx}>
-                          <td className="px-4 py-2">
-                            <div className="flex items-center gap-2">
-                              {item.productImage ? (
-                                <img
-                                  src={item.productImage}
-                                  alt={item.productName}
-                                  className="w-8 h-8 rounded object-cover"
-                                />
-                              ) : (
-                                <div className="w-8 h-8 rounded bg-amber-50 flex items-center justify-center">
-                                  <ShoppingBag
-                                    size={14}
-                                    className="text-amber-300"
+                      {selectedCart.items.map((item, idx) => {
+                        const seller = selectedCart.sellers.find(
+                          (s) => s.sellerId === item.sellerId
+                        );
+                        const itemPBV = seller
+                          ? calcPBV(
+                              item.bv * item.quantity,
+                              seller.sellerBonusPercentage
+                            )
+                          : item.bv * item.quantity;
+                        return (
+                          <tr key={idx}>
+                            <td className="px-4 py-2">
+                              <div className="flex items-center gap-2">
+                                {item.productImage ? (
+                                  <img
+                                    src={item.productImage}
+                                    alt={item.productName}
+                                    className="w-8 h-8 rounded object-cover"
                                   />
+                                ) : (
+                                  <div className="w-8 h-8 rounded bg-amber-50 flex items-center justify-center">
+                                    <ShoppingBag
+                                      size={14}
+                                      className="text-amber-300"
+                                    />
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="text-sm font-medium text-gray-700">
+                                    {item.productName}
+                                  </p>
+                                  <p className="text-xs text-gray-400">
+                                    {item.productCode}
+                                  </p>
                                 </div>
-                              )}
-                              <div>
-                                <p className="text-sm font-medium text-gray-700">
-                                  {item.productName}
-                                </p>
-                                <p className="text-xs text-gray-400">
-                                  {item.productCode}
-                                </p>
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-2 text-center text-sm text-gray-600">
-                            {item.quantity}
-                          </td>
-                          <td className="px-4 py-2 text-center text-sm text-gray-600">
-                            {item.bv}
-                          </td>
-                          <td className="px-4 py-2 text-right text-sm text-gray-600">
-                            TSh {item.price.toLocaleString()}
-                          </td>
-                          <td className="px-4 py-2 text-right text-sm font-medium text-amber-600">
-                            TSh {item.subtotal.toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td className="px-4 py-2 text-sm text-gray-600">
+                              {item.sellerName ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <Store
+                                    size={12}
+                                    className="text-amber-500"
+                                  />
+                                  {item.sellerName}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-gray-400">
+                                  —
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2 text-center text-sm text-gray-600">
+                              {item.quantity}
+                            </td>
+                            <td className="px-4 py-2 text-center text-sm text-gray-600">
+                              {item.bv}
+                            </td>
+                            <td className="px-4 py-2 text-center text-sm font-semibold text-amber-700">
+                              {itemPBV}
+                            </td>
+                            <td className="px-4 py-2 text-right text-sm text-gray-600">
+                              TSh {item.price.toLocaleString()}
+                            </td>
+                            <td className="px-4 py-2 text-right text-sm font-medium text-amber-600">
+                              TSh {item.subtotal.toLocaleString()}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                     <tfoot className="bg-gray-100">
                       <tr>
                         <td
-                          colSpan={3}
+                          colSpan={4}
                           className="px-4 py-2 text-right font-medium text-gray-700"
                         >
-                          Total BV: {selectedCart.totalBV}
+                          Total BV: {selectedCart.totalBV} | Total PBV:{' '}
+                          {selectedCart.totalPBV}
                         </td>
                         <td
-                          colSpan={2}
+                          colSpan={3}
                           className="px-4 py-2 text-right font-bold text-amber-600"
                         >
                           TSh {selectedCart.subtotal.toLocaleString()}
@@ -933,7 +1277,7 @@ const Orders: React.FC = () => {
         </div>
       )}
 
-      {/* ================= Create Cart Modal ================= */}
+      {/* ================= Create Cart Modal (unchanged) ================= */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -973,7 +1317,6 @@ const Orders: React.FC = () => {
             </div>
 
             <form onSubmit={handleSubmitCart} className="p-6 space-y-6">
-              {/* Customer */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Customer
@@ -1002,7 +1345,6 @@ const Orders: React.FC = () => {
                 </select>
               </div>
 
-              {/* Guest session key */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Guest Session Key (optional)
@@ -1021,12 +1363,12 @@ const Orders: React.FC = () => {
                 />
               </div>
 
-              {/* Distributor */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Distributor (Optional)
                 </label>
-                <select                  value={formData.distributor_id ?? ''}
+                <select
+                  value={formData.distributor_id ?? ''}
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
@@ -1039,9 +1381,7 @@ const Orders: React.FC = () => {
                   disabled={loadingDistributors}
                 >
                   <option value="">
-                    {loadingDistributors
-                      ? 'Loading distributors...'
-                      : 'None'}
+                    {loadingDistributors ? 'Loading distributors...' : 'None'}
                   </option>
                   {distributorsList.map((d) => (
                     <option key={d.id} value={d.id}>
@@ -1054,7 +1394,6 @@ const Orders: React.FC = () => {
                 </select>
               </div>
 
-              {/* Items */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-sm font-medium text-gray-700">
@@ -1078,112 +1417,129 @@ const Orders: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {formData.items.map((item, index) => (
-                      <div
-                        key={index}
-                        className="p-4 bg-gray-50 rounded-lg border border-gray-200"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-3">
-                            <div className="md:col-span-1">
-                              <label className="block text-xs text-gray-500 mb-1">
-                                Product
-                              </label>
-                              <select
-                                value={item.product || ''}
-                                onChange={(e) =>
-                                  handleItemChange(
-                                    index,
-                                    'product',
-                                    e.target.value
-                                  )
-                                }
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
-                                required
-                                disabled={loadingProducts}
-                              >
-                                <option value="">
-                                  {loadingProducts
-                                    ? 'Loading...'
-                                    : 'Select...'}
-                                </option>
-                                {products.map((p) => (
-                                  <option key={p.id} value={p.id}>
-                                    {p.name} - TSh{' '}
-                                    {Number(
-                                      p.effective_price ?? 0
-                                    ).toLocaleString()}
+                    {formData.items.map((item, index) => {
+                      const selProd = products.find(
+                        (p) => p.id === item.product
+                      );
+                      return (
+                        <div
+                          key={index}
+                          className="p-4 bg-gray-50 rounded-lg border border-gray-200"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-3">
+                              <div className="md:col-span-1">
+                                <label className="block text-xs text-gray-500 mb-1">
+                                  Product
+                                </label>
+                                <select
+                                  value={item.product || ''}
+                                  onChange={(e) =>
+                                    handleItemChange(
+                                      index,
+                                      'product',
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                  required
+                                  disabled={loadingProducts}
+                                >
+                                  <option value="">
+                                    {loadingProducts
+                                      ? 'Loading...'
+                                      : 'Select...'}
                                   </option>
-                                ))}
-                              </select>
+                                  {products.map((p) => (
+                                    <option key={p.id} value={p.id}>
+                                      {p.name} - TSh{' '}
+                                      {Number(
+                                        p.effective_price ?? 0
+                                      ).toLocaleString()}
+                                    </option>
+                                  ))}
+                                </select>
+                                {selProd?.seller_name && (
+                                  <p className="mt-1 text-[10px] text-amber-600 flex items-center gap-1">
+                                    <Store size={10} />
+                                    Seller: {selProd.seller_name}
+                                    {selProd.seller_rank
+                                      ? ` (${selProd.seller_rank})`
+                                      : ''}
+                                  </p>
+                                )}
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-1">
+                                  Quantity
+                                </label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={item.quantity}
+                                  onChange={(e) =>
+                                    handleItemChange(
+                                      index,
+                                      'quantity',
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                  required
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-1">
+                                  Price (TSh)
+                                </label>
+                                <input
+                                  type="number"
+                                  value={item.price}
+                                  onChange={(e) =>
+                                    handleItemChange(
+                                      index,
+                                      'price',
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                  required
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-1">
+                                  BV
+                                </label>
+                                <input
+                                  type="number"
+                                  value={item.bv}
+                                  onChange={(e) =>
+                                    handleItemChange(
+                                      index,
+                                      'bv',
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                  required
+                                />
+                              </div>
                             </div>
-                            <div>
-                              <label className="block text-xs text-gray-500 mb-1">
-                                Quantity
-                              </label>
-                              <input
-                                type="number"
-                                min="1"
-                                value={item.quantity}
-                                onChange={(e) =>
-                                  handleItemChange(
-                                    index,
-                                    'quantity',
-                                    e.target.value
-                                  )
-                                }
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
-                                required
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-gray-500 mb-1">
-                                Price (TSh)
-                              </label>
-                              <input
-                                type="number"
-                                value={item.price}
-                                onChange={(e) =>
-                                  handleItemChange(
-                                    index,
-                                    'price',
-                                    e.target.value
-                                  )
-                                }
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
-                                required
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-gray-500 mb-1">
-                                BV
-                              </label>
-                              <input
-                                type="number"
-                                value={item.bv}
-                                onChange={(e) =>
-                                  handleItemChange(index, 'bv', e.target.value)
-                                }
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
-                                required
-                              />
-                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(index)}
+                              className="mt-5 p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <X size={18} />
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveItem(index)}
-                            className="mt-5 p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <X size={18} />
-                          </button>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
 
-              {/* Notes */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Notes (Optional)
@@ -1199,7 +1555,6 @@ const Orders: React.FC = () => {
                 />
               </div>
 
-              {/* Summary */}
               {formData.items.length > 0 && (
                 <div className="p-4 bg-amber-50/50 rounded-lg border border-amber-200/30">
                   <div className="flex flex-col md:flex-row justify-between gap-2">
@@ -1241,7 +1596,6 @@ const Orders: React.FC = () => {
                 </div>
               )}
 
-              {/* Actions */}
               <div className="border-t border-amber-100/30 pt-4 flex flex-col sm:flex-row gap-3">
                 <button
                   type="button"

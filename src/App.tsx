@@ -5,6 +5,7 @@ import {
   Routes,
   Route,
   useLocation,
+  Navigate,
 } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 
@@ -57,6 +58,7 @@ import Shops from './pages/Admin/Shops';
 import Analytics from './pages/Admin/Analytics';
 import Categories from './pages/Admin/Categories';
 import Settings from './pages/Admin/Settings';
+import AdminUsers from './pages/Admin/Users';
 
 // Distributor Pages
 import DistributorLayout from './components/DistributorLayout';
@@ -77,10 +79,10 @@ import ShopSettings from './pages/shop/Settings';
 import ShopCalendar from './pages/shop/Calendar';
 
 // Profile
-import Profile from './pages/Profile';
+import Profile from './pages/distributor/Profile';
 
 // Contexts
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { AdminProvider } from './context/AdminContext';
 
 /* ------------------------------------------------------------------ */
@@ -136,16 +138,102 @@ const AuthLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 );
 
 /* ------------------------------------------------------------------ */
-/* Route guards (open for now)                                         */
+/* Route guards                                                        */
 /* ------------------------------------------------------------------ */
 
-const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <>{children}</>
+const homeForRole = (role: string | null | undefined): string => {
+  switch ((role || '').toLowerCase()) {
+    case 'admin':
+      return '/admin';
+    case 'distributor':
+      return '/distributor';
+    default:
+      return '/';
+  }
+};
+
+const AuthLoading: React.FC = () => (
+  <div className="min-h-[60vh] flex items-center justify-center">
+    <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+  </div>
 );
 
+/** Admin-only routes. */
+const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, userType, isLoading } = useAuth();
+
+  if (isLoading) return <AuthLoading />;
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const role = (userType || 'customer').toLowerCase();
+  if (role !== 'admin') {
+    return <Navigate to={homeForRole(role)} replace />;
+  }
+
+  return <>{children}</>;
+};
+
+/** Distributor-only routes. */
 const DistributorRoute: React.FC<{ children: React.ReactNode }> = ({
   children,
-}) => <>{children}</>;
+}) => {
+  const { isAuthenticated, userType, isLoading } = useAuth();
+
+  if (isLoading) return <AuthLoading />;
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const role = (userType || 'customer').toLowerCase();
+  if (role !== 'distributor') {
+    return <Navigate to={homeForRole(role)} replace />;
+  }
+
+  return <>{children}</>;
+};
+
+/**
+ * Requires the user to be logged in AND to be a customer.
+ */
+const CustomerRoute: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const { isAuthenticated, userType, isLoading } = useAuth();
+
+  if (isLoading) return <AuthLoading />;
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const role = (userType || 'customer').toLowerCase();
+  if (role === 'admin' || role === 'distributor') {
+    return <Navigate to={homeForRole(role)} replace />;
+  }
+
+  return <>{children}</>;
+};
+
+/**
+ * Requires the user to be logged in — any role.
+ */
+const RequireAuth: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) return <AuthLoading />;
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+};
 
 /* ------------------------------------------------------------------ */
 /* App content                                                         */
@@ -185,6 +273,7 @@ const AppContent: React.FC = () => {
             }
           >
             <Route index element={<Dashboard />} />
+            <Route path="users" element={<AdminUsers />} />
             <Route path="distributors" element={<Distributors />} />
             <Route path="products" element={<Products />} />
             <Route path="orders" element={<AdminOrders />} />
@@ -212,6 +301,7 @@ const AppContent: React.FC = () => {
             <Route path="downline" element={<DistributorDownline />} />
             <Route path="commissions" element={<DistributorCommissions />} />
             <Route path="settings" element={<DistributorSettings />} />
+            <Route path="profile" element={<Profile />} />
           </Route>
 
           {/* ---------------- Shop Owner ---------------- */}
@@ -226,24 +316,14 @@ const AppContent: React.FC = () => {
           </Route>
 
           {/* ---------------- Storefront ---------------- */}
+
+          {/* Public browsing */}
           <Route path="/shop" element={<LayoutWrapper><Shop /></LayoutWrapper>} />
-
-          {/* Catalog — multi-layout, all products */}
           <Route path="/products" element={<LayoutWrapper><SinglePage /></LayoutWrapper>} />
-
-          {/* Single product detail */}
           <Route path="/products/:id" element={<LayoutWrapper><ProductDetail /></LayoutWrapper>} />
-
-          {/* Legacy alias — keep if you still link to it */}
           <Route path="/single-page" element={<LayoutWrapper><SinglePage /></LayoutWrapper>} />
-
           <Route path="/bestseller" element={<LayoutWrapper><Bestseller /></LayoutWrapper>} />
-          <Route path="/cart" element={<LayoutWrapper><Cart /></LayoutWrapper>} />
-          <Route path="/checkout" element={<LayoutWrapper><Checkout /></LayoutWrapper>} />
           <Route path="/contact" element={<LayoutWrapper><Contact /></LayoutWrapper>} />
-          <Route path="/wishlist" element={<LayoutWrapper><Wishlist /></LayoutWrapper>} />
-          <Route path="/account" element={<LayoutWrapper><Account /></LayoutWrapper>} />
-          <Route path="/orders" element={<LayoutWrapper><Orders /></LayoutWrapper>} />
           <Route path="/search" element={<LayoutWrapper><Search /></LayoutWrapper>} />
           <Route path="/category/:category" element={<LayoutWrapper><Category /></LayoutWrapper>} />
           <Route path="/about" element={<LayoutWrapper><About /></LayoutWrapper>} />
@@ -251,6 +331,45 @@ const AppContent: React.FC = () => {
           <Route path="/blog" element={<LayoutWrapper><Blog /></LayoutWrapper>} />
           <Route path="/terms" element={<LayoutWrapper><Terms /></LayoutWrapper>} />
           <Route path="/privacy" element={<LayoutWrapper><Privacy /></LayoutWrapper>} />
+
+          {/* Cart is fine for guests */}
+          <Route path="/cart" element={<LayoutWrapper><Cart /></LayoutWrapper>} />
+
+          {/* Customer-only */}
+          <Route
+            path="/checkout"
+            element={
+              <CustomerRoute>
+                <LayoutWrapper><Checkout /></LayoutWrapper>
+              </CustomerRoute>
+            }
+          />
+          <Route
+            path="/account"
+            element={
+              <CustomerRoute>
+                <LayoutWrapper><Account /></LayoutWrapper>
+              </CustomerRoute>
+            }
+          />
+          <Route
+            path="/orders"
+            element={
+              <CustomerRoute>
+                <LayoutWrapper><Orders /></LayoutWrapper>
+              </CustomerRoute>
+            }
+          />
+
+          {/* Any-authenticated-user */}
+          <Route
+            path="/wishlist"
+            element={
+              <RequireAuth>
+                <LayoutWrapper><Wishlist /></LayoutWrapper>
+              </RequireAuth>
+            }
+          />
 
           {/* ---------------- 404 ---------------- */}
           <Route

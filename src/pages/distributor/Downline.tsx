@@ -20,6 +20,7 @@ import {
 import { distributorAPI } from '../../api/distributors';
 import { userAPI } from '../../api/users';
 import { useAuth } from '../../context/AuthContext';
+import { SkeletonUsersPage } from '../../components/common/Skeleton';
 import type { Distributor, User as UserType } from '../../types';
 
 /* ------------------------------------------------------------------ */
@@ -100,7 +101,6 @@ const formatDate = (iso?: string) => {
   }
 };
 
-/** Extract a distributor's related user id from whatever shape the API returned. */
 const getDistributorUserId = (d: any): number | null => {
   if (typeof d?.user === 'object' && d.user !== null) return d.user.id;
   if (typeof d?.user === 'number') return d.user;
@@ -108,7 +108,6 @@ const getDistributorUserId = (d: any): number | null => {
   return null;
 };
 
-/** Recursively flatten a nested hierarchy tree into a flat array. */
 const flattenHierarchy = (
   nodes: any[],
   level: number,
@@ -140,7 +139,6 @@ const flattenHierarchy = (
   return out;
 };
 
-/** Normalize the hierarchy response into an array of children. */
 const extractChildren = (response: any): any[] => {
   if (!response) return [];
   if (Array.isArray(response)) return response;
@@ -148,7 +146,6 @@ const extractChildren = (response: any): any[] => {
   return [];
 };
 
-/** Normalize a list response (array OR paginated). */
 const normalizeList = <T,>(data: any): T[] => {
   if (Array.isArray(data)) return data;
   if (data && Array.isArray(data.results)) return data.results;
@@ -182,7 +179,6 @@ const InviteMembersModal: React.FC<InviteModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /* ---------- Load candidate users ---------- */
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
@@ -236,7 +232,6 @@ const InviteMembersModal: React.FC<InviteModalProps> = ({
     };
   }, [isOpen]);
 
-  /* Reset form state on open */
   useEffect(() => {
     if (isOpen) {
       setSelectedIds([]);
@@ -598,7 +593,7 @@ const RemoveDownlineModal: React.FC<RemoveModalProps> = ({
 /* ------------------------------------------------------------------ */
 
 const DistributorDownline: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
 
   const [members, setMembers] = useState<DownlineMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -606,7 +601,6 @@ const DistributorDownline: React.FC = () => {
   const [myDistributorId, setMyDistributorId] = useState<number | null>(null);
   const [distributorName, setDistributorName] = useState<string>('');
 
-  /* 👇 NEW — the logged-in distributor's own PBV & CGV (the true "team" numbers) */
   const [myPBV, setMyPBV] = useState<number>(0);
   const [myCGV, setMyCGV] = useState<number>(0);
 
@@ -618,7 +612,6 @@ const DistributorDownline: React.FC = () => {
 
   const [inviteOpen, setInviteOpen] = useState(false);
 
-  /* Remove flow */
   const [removeTarget, setRemoveTarget] = useState<DownlineMember | null>(null);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
@@ -635,7 +628,7 @@ const DistributorDownline: React.FC = () => {
       let hierarchyResponse: any = null;
       let myDistId: number | null = null;
       let myName = 'My';
-      let meObj: any = null; // the raw distributor object (for pbv/cgv)
+      let meObj: any = null;
 
       const hasMeEndpoint =
         typeof (distributorAPI as any).getMyHierarchy === 'function';
@@ -646,11 +639,9 @@ const DistributorDownline: React.FC = () => {
           if (meResult?.distributor) {
             meObj = meResult.distributor;
             myDistId = meObj.id;
-            myName =
-              meObj.name || meObj.full_name || 'My';
+            myName = meObj.name || meObj.full_name || 'My';
             hierarchyResponse = meResult.downline || [];
           } else {
-            // Some backends return the hierarchy directly
             hierarchyResponse = extractChildren(meResult);
           }
         } catch (err: any) {
@@ -717,7 +708,6 @@ const DistributorDownline: React.FC = () => {
       setDistributorName(myName);
       setMembers(list);
 
-      /* 👇 The real "team" totals: my own distributor record */
       setMyPBV(num(meObj?.pbv));
       setMyCGV(num(meObj?.cgv));
 
@@ -743,10 +733,14 @@ const DistributorDownline: React.FC = () => {
     setMyPBV(0);
     setMyCGV(0);
 
-    if (!(user as any)?.id) return;
+    if (authLoading) return;
+    if (!(user as any)?.id) {
+      setLoading(false);
+      return;
+    }
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [authLoading, user?.id]);
 
   /* ---------- Remove handler ---------- */
   const handleRemove = async (action: 'detach' | 'delete') => {
@@ -797,18 +791,6 @@ const DistributorDownline: React.FC = () => {
   }, [members, searchTerm, filterRank, filterStatus]);
 
   /* ---------- Stats ---------- */
-  /**
-   * ⚠️  IMPORTANT — read this before touching these numbers:
-   *
-   *  PBV (Personal Bonus Volume) = volume *you personally* sold this month.
-   *    → Summing PBV across the flattened downline is valid; each member
-   *      reports their own personal sales, no overlap.
-   *
-   *  CGV (Cumulative Group Volume) = volume of *your entire network* since
-   *    the business began. Because every distributor's CGV already includes
-   *    their own downline's volume, summing CGVs would double/triple count.
-   *    → To get "my team's CGV" we use MY OWN distributor.cgv (set above).
-   */
   const directDownlineCount = useMemo(
     () => members.filter((m) => m.level === 1).length,
     [members]
@@ -816,7 +798,6 @@ const DistributorDownline: React.FC = () => {
   const totalDownline = members.length;
   const activeDownline = members.filter((m) => m.status === 'Active').length;
 
-  /* Team PBV = sum of every member's personal PBV (valid = MPGV-like metric) */
   const teamPBV = useMemo(
     () => members.reduce((sum, m) => sum + m.pbv, 0),
     [members]
@@ -830,13 +811,9 @@ const DistributorDownline: React.FC = () => {
     [members]
   );
 
-  /* ---------- Loading ---------- */
-  if (loading) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center py-12">
-        <Loader2 className="w-10 h-10 text-amber-500 animate-spin" />
-      </div>
-    );
+  /* ---------- Loading — skeleton, not spinner ---------- */
+  if (authLoading || loading) {
+    return <SkeletonUsersPage rows={8} />;
   }
 
   /* ---------- Error ---------- */

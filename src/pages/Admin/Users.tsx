@@ -9,7 +9,7 @@ import {
   Shield,
   ShieldOff,
   CheckCircle,
-  XCircle,
+  
   KeyRound,
   Loader2,
   RefreshCw,
@@ -24,6 +24,7 @@ import {
   type AdminUser,
   type AdminUserStats,
 } from '../../api/adminUsers';
+import { SkeletonUsersPage } from '../../components/common/Skeleton';
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -238,7 +239,6 @@ const AdminUsers: React.FC = () => {
     setSaving(true);
     try {
       if (editing) {
-        // Update basic fields
         await adminUsersAPI.update(editing.id, {
           email: form.email,
           username: form.username,
@@ -250,12 +250,10 @@ const AdminUsers: React.FC = () => {
           city: form.city,
         });
 
-        // Role change (separate endpoint because user_type is read-only on serializer)
         if (form.user_type !== editing.user_type) {
           await adminUsersAPI.setRole(editing.id, form.user_type);
         }
 
-        // Status toggle
         if (form.status !== editing.status) {
           if (form.status === 'banned') await adminUsersAPI.ban(editing.id);
           else await adminUsersAPI.activate(editing.id);
@@ -392,11 +390,7 @@ const AdminUsers: React.FC = () => {
   /* ---------------------------------------------------------------- */
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
-      </div>
-    );
+    return <SkeletonUsersPage rows={10} />;
   }
 
   if (error) {

@@ -24,6 +24,8 @@ import {
 
 import { shopAPI } from '../../api/shops';
 import { distributorAPI } from '../../api/distributors';
+import { SkeletonListPage } from '../../components/common/Skeleton';
+import { useAuth } from '../../context/AuthContext';
 import type { Shop as ApiShop, Distributor } from '../../types';
 
 /* ------------------------------------------------------------------ */
@@ -51,12 +53,10 @@ interface DisplayShop {
   region: string;
   country: string;
 
-  // Read-only, auto-computed by the backend
   performanceLevel: PerformanceLevel;
   bonusPercentage: number;
   ownerBv: number;
 
-  // Editable business fields
   monthlyRevenue: number;
   rating: number;
   status: ShopStatus;
@@ -624,6 +624,8 @@ const DeleteShopModal: React.FC<DeleteShopModalProps> = ({
 /* ------------------------------------------------------------------ */
 
 const Shops: React.FC = () => {
+  const { user: authUser, isLoading: authLoading } = useAuth();
+
   /* ---------- Data ---------- */
   const [shops, setShops] = useState<DisplayShop[]>([]);
   const [distributors, setDistributors] = useState<Distributor[]>([]);
@@ -680,8 +682,14 @@ const Shops: React.FC = () => {
   };
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!authUser) {
+      setLoading(false);
+      return;
+    }
     loadShops();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, authUser?.id]);
 
   useEffect(() => {
     if (addModalOpen || editModalOpen) {
@@ -837,13 +845,9 @@ const Shops: React.FC = () => {
       }
     : null;
 
-  /* ---------- Loading screen ---------- */
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
-      </div>
-    );
+  /* ---------- Loading — skeleton, not spinner ---------- */
+  if (authLoading || loading) {
+    return <SkeletonListPage rows={8} cols={6} kpis toolbar />;
   }
 
   /* ---------- Render ---------- */
@@ -1079,7 +1083,6 @@ const Shops: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Owner BV · Revenue · Bonus */}
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <div className="text-center p-2 bg-amber-50/50 rounded-lg">
                     <p className="text-xs text-gray-500">Owner BV</p>

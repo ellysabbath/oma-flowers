@@ -1,4 +1,4 @@
-// src/pages/admin/Commissions.tsx
+// src/pages/distributor/Commissions.tsx
 // Read-only view of the logged-in distributor's commissions.
 // Data comes straight from the backend — no editing.
 
@@ -22,6 +22,8 @@ import {
 
 import { commissionAPI } from '../../api/commissions';
 import { distributorAPI } from '../../api/distributors';
+import { useAuth } from '../../context/AuthContext';
+import { SkeletonListPage } from '../../components/common/Skeleton';
 import type { Commission as ApiCommission } from '../../types';
 
 /* ------------------------------------------------------------------ */
@@ -120,6 +122,8 @@ const statusColors: Record<string, string> = {
 /* ------------------------------------------------------------------ */
 
 const Commissions: React.FC = () => {
+  const { user, isLoading: authLoading } = useAuth();
+
   /* ---------- Identity (from API, no useAuth) ---------- */
   const [myDistributorId, setMyDistributorId] = useState<number | null>(null);
   const [myProfile, setMyProfile] = useState<any | null>(null);
@@ -191,6 +195,13 @@ const Commissions: React.FC = () => {
   };
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setIdentityChecked(true);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
     (async () => {
       const id = await resolveMyDistributor();
@@ -203,7 +214,7 @@ const Commissions: React.FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authLoading, user?.id]);
 
   /* ================================================================ */
   /* 2) Fetch — read-only                                              */
@@ -370,15 +381,11 @@ const Commissions: React.FC = () => {
   };
 
   /* ================================================================ */
-  /* Loading / error / no-identity                                     */
+  /* Loading — skeleton, not spinner                                  */
   /* ================================================================ */
 
-  if (!identityChecked || loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
-      </div>
-    );
+  if (authLoading || !identityChecked || loading) {
+    return <SkeletonListPage rows={8} cols={7} kpis toolbar />;
   }
 
   if (!myDistributorId) {

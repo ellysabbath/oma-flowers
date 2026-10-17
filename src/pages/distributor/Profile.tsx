@@ -28,10 +28,11 @@ import {
   Flag,
 } from 'lucide-react';
 
-import { useAuth } from '../../context/AuthContext'; 
-import { authAPI } from '../../api/auth'; 
-import { distributorAPI } from '../../api/distributors'; 
+import { useAuth } from '../../context/AuthContext';
+import { authAPI } from '../../api/auth';
+import { distributorAPI } from '../../api/distributors';
 import ProfilePictureUpload from '../../components/common/ProfilePictureUpload';
+import { SkeletonProfile } from '../../components/common/Skeleton';
 import type { User, Distributor } from '../../types';
 
 /* ------------------------------------------------------------------ */
@@ -93,7 +94,11 @@ const statusColors: Record<string, string> = {
 /* ------------------------------------------------------------------ */
 
 const Profile: React.FC = () => {
-  const { user: contextUser, updateUser } = useAuth();
+  const {
+    user: contextUser,
+    updateUser,
+    isLoading: authLoading,
+  } = useAuth();
 
   const [profile, setProfile] = useState<User | null>(
     (contextUser as any) || null
@@ -111,7 +116,13 @@ const Profile: React.FC = () => {
       const fresh: any = await authAPI.getProfile();
       const userObj = fresh?.data ?? fresh;
       setProfile(userObj);
-      if (updateUser && userObj) updateUser(userObj);
+      if (updateUser && userObj) {
+        try {
+          updateUser(userObj);
+        } catch (e) {
+          console.warn('non-fatal: user cache update failed', e);
+        }
+      }
 
       // If distributor, load their profile
       if (userObj?.user_type === 'distributor') {
@@ -135,9 +146,14 @@ const Profile: React.FC = () => {
   };
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!contextUser) {
+      setLoading(false);
+      return;
+    }
     loadProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authLoading, contextUser?.id]);
 
   /* ---------- Upload handler ---------- */
   const handleUploadSuccess = async (url: string) => {
@@ -148,24 +164,32 @@ const Profile: React.FC = () => {
       const updated = result?.data ?? result;
       if (updated) {
         setProfile(updated);
-        if (updateUser) updateUser(updated);
+        if (updateUser) {
+          try {
+            updateUser(updated);
+          } catch (e) {
+            console.warn('non-fatal: user cache update failed', e);
+          }
+        }
       } else if (profile) {
         const next = { ...profile, profile_picture: url };
         setProfile(next);
-        if (updateUser) updateUser(next);
+        if (updateUser) {
+          try {
+            updateUser(next);
+          } catch (e) {
+            console.warn('non-fatal: user cache update failed', e);
+          }
+        }
       }
     } catch (e) {
       console.error('Profile picture update failed:', e);
     }
   };
 
-  /* ---------- Loading ---------- */
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
-      </div>
-    );
+  /* ---------- Loading — skeleton, not spinner ---------- */
+  if (authLoading || loading) {
+    return <SkeletonProfile />;
   }
 
   if (error) {
@@ -206,16 +230,12 @@ const Profile: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto space-y-6">
-        {/* ============================================================ */}
-        {/* HEADER                                                       */}
-        {/* ============================================================ */}
+        {/* HEADER */}
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-          {/* Decorative gradient strip */}
           <div className="h-24 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600" />
 
           <div className="px-6 pb-6 -mt-12">
             <div className="flex flex-col md:flex-row md:items-end gap-6">
-              {/* Avatar */}
               <div className="shrink-0">
                 <ProfilePictureUpload
                   size="xl"
@@ -225,7 +245,6 @@ const Profile: React.FC = () => {
                 />
               </div>
 
-              {/* Identity */}
               <div className="flex-1 text-center md:text-left min-w-0 pb-2">
                 <h1 className="text-2xl font-bold text-gray-900 truncate">
                   {displayName}
@@ -234,7 +253,6 @@ const Profile: React.FC = () => {
                   <Mail size={14} /> {profile.email}
                 </p>
 
-                {/* Chips */}
                 <div className="flex flex-wrap items-center gap-2 mt-3 justify-center md:justify-start">
                   <span
                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${
@@ -267,7 +285,6 @@ const Profile: React.FC = () => {
                 </div>
               </div>
 
-              {/* Actions */}
               <div className="flex flex-wrap gap-2 justify-center md:justify-end pb-2">
                 <Link
                   to="/profile/edit"
@@ -286,9 +303,7 @@ const Profile: React.FC = () => {
           </div>
         </div>
 
-        {/* ============================================================ */}
-        {/* 3-COLUMN KPI STRIP                                           */}
-        {/* ============================================================ */}
+        {/* 3-COLUMN KPI STRIP */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <KpiTile
             icon={<UserIcon size={20} />}
@@ -310,9 +325,7 @@ const Profile: React.FC = () => {
           />
         </div>
 
-        {/* ============================================================ */}
-        {/* PERSONAL INFORMATION                                         */}
-        {/* ============================================================ */}
+        {/* PERSONAL INFORMATION */}
         <Section
           icon={<UserIcon size={18} />}
           title="Personal Information"
@@ -344,9 +357,7 @@ const Profile: React.FC = () => {
           </div>
         </Section>
 
-        {/* ============================================================ */}
-        {/* CONTACT & LOCATION                                           */}
-        {/* ============================================================ */}
+        {/* CONTACT & LOCATION */}
         <Section
           icon={<MapPin size={18} />}
           title="Contact & Location"
@@ -368,9 +379,7 @@ const Profile: React.FC = () => {
           </div>
         </Section>
 
-        {/* ============================================================ */}
-        {/* DISTRIBUTOR PROFILE (only if applicable)                     */}
-        {/* ============================================================ */}
+        {/* DISTRIBUTOR PROFILE */}
         {profile.user_type === 'distributor' && distributor && (
           <Section
             icon={<Award size={18} />}
@@ -426,9 +435,7 @@ const Profile: React.FC = () => {
           </Section>
         )}
 
-        {/* ============================================================ */}
-        {/* ACCOUNT & SECURITY                                           */}
-        {/* ============================================================ */}
+        {/* ACCOUNT & SECURITY */}
         <Section
           icon={<Shield size={18} />}
           title="Account & Security"
@@ -466,9 +473,7 @@ const Profile: React.FC = () => {
           </div>
         </Section>
 
-        {/* ============================================================ */}
-        {/* ACCOUNT TIMELINE                                             */}
-        {/* ============================================================ */}
+        {/* ACCOUNT TIMELINE */}
         <Section
           icon={<Clock size={18} />}
           title="Account Timeline"
@@ -514,9 +519,7 @@ const Profile: React.FC = () => {
           </div>
         </Section>
 
-        {/* ============================================================ */}
-        {/* SYSTEM FLAGS (is_active, is_staff, is_superuser)             */}
-        {/* ============================================================ */}
+        {/* SYSTEM FLAGS */}
         {(profile.is_active !== undefined ||
           profile.is_staff !== undefined ||
           profile.is_superuser !== undefined) && (
@@ -551,9 +554,7 @@ const Profile: React.FC = () => {
           </Section>
         )}
 
-        {/* ============================================================ */}
-        {/* FOOTER                                                       */}
-        {/* ============================================================ */}
+        {/* FOOTER */}
         <div className="bg-gradient-to-br from-amber-50 to-amber-100/30 rounded-2xl border border-amber-200/40 p-5">
           <div className="flex items-start gap-3">
             <div className="p-2 bg-white rounded-lg shadow-sm">
@@ -579,7 +580,6 @@ const Profile: React.FC = () => {
 /* Sub-components                                                      */
 /* ================================================================== */
 
-/* ---------- Section card ---------- */
 interface SectionProps {
   icon: React.ReactNode;
   title: string;
@@ -609,7 +609,6 @@ const Section: React.FC<SectionProps> = ({
   </div>
 );
 
-/* ---------- Label + value field ---------- */
 interface FieldProps {
   label: string;
   value?: string | number | null;
@@ -642,7 +641,6 @@ const Field: React.FC<FieldProps> = ({ label, value, icon }) => {
   );
 };
 
-/* ---------- KPI tile (top strip) ---------- */
 interface KpiTileProps {
   icon: React.ReactNode;
   label: string;
@@ -669,7 +667,6 @@ const KpiTile: React.FC<KpiTileProps> = ({ icon, label, value, color }) => {
   );
 };
 
-/* ---------- Stat tile (distributor section) ---------- */
 interface StatTileProps {
   label: string;
   value: string;
@@ -696,7 +693,6 @@ const StatTile: React.FC<StatTileProps> = ({ label, value, color, icon }) => {
   );
 };
 
-/* ---------- Timeline row ---------- */
 interface TimelineRowProps {
   icon: React.ReactNode;
   label: string;
@@ -731,7 +727,6 @@ const TimelineRow: React.FC<TimelineRowProps> = ({
   );
 };
 
-/* ---------- Flag tile (is_active, is_staff, ...) ---------- */
 interface FlagTileProps {
   label: string;
   value: boolean;

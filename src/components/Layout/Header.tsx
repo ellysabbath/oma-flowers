@@ -11,12 +11,17 @@ import {
   LogIn,
   UserPlus,
   ChevronDown,
-  Crown,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { cartAPI } from '../../api/cart';
 import { categoryAPI } from '../../api/categories';
 import type { Category } from '../../types';
+
+/* ------------------------------------------------------------------ */
+/* Logo — served from public/ (cannot be imported)                     */
+/* ------------------------------------------------------------------ */
+
+const OMA_LOGO = '/oma.jpeg';
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -176,12 +181,13 @@ const Header: React.FC<HeaderProps> = ({ cartCount: cartCountOverride }) => {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center group">
-            <div className="relative">
-              <Crown
-                className="text-amber-600 mr-2 transition-all duration-300 group-hover:scale-110 group-hover:text-amber-700"
-                size={32}
+            <div className="relative shrink-0">
+              <img
+                src={OMA_LOGO}
+                alt="OMA Flowers"
+                className="w-13 h-13 rounded-full object-cover border-2 border-amber-400/50 bg-white mr-2 transition-all duration-300 group-hover:scale-110 group-hover:border-amber-600"
               />
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
+              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
             </div>
             <div>
               <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-600 via-amber-500 to-amber-700 bg-clip-text text-transparent">
@@ -193,7 +199,7 @@ const Header: React.FC<HeaderProps> = ({ cartCount: cartCountOverride }) => {
             </div>
           </Link>
 
-          {/* Search — dropdown now shows real OMA Flowers classes */}
+          {/* Search */}
           <form onSubmit={handleSearch} className="flex-1 max-w-2xl mx-8">
             <div className="flex rounded-full border-2 border-amber-200/60 overflow-hidden shadow-sm hover:shadow-md hover:border-amber-300 transition-all duration-300 bg-white">
               <input
@@ -206,7 +212,7 @@ const Header: React.FC<HeaderProps> = ({ cartCount: cartCountOverride }) => {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-4 py-3 border-l max-h-[220px]  border-amber-200/60 outline-none bg-amber-50/50 text-gray-600 hover:bg-amber-100/50 cursor-pointer transition-colors duration-200 max-w-[220px] truncate"
+                className="px-4 py-3 border-l max-h-[220px] border-amber-200/60 outline-none bg-amber-50/50 text-gray-600 hover:bg-amber-100/50 cursor-pointer transition-colors duration-200 max-w-[220px] truncate"
               >
                 <option value="all">All Categories</option>
                 {categories.map((cat) => (

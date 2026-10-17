@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 
 import { awardAPI } from '../../api/awards';
+import { SkeletonListPage } from '../../components/common/Skeleton';
+import { useAuth } from '../../context/AuthContext';
 import type { Award as ApiAward } from '../../types';
 
 /* ------------------------------------------------------------------ */
@@ -108,6 +110,8 @@ const statusIcons: Record<string, React.ReactNode> = {
 /* ------------------------------------------------------------------ */
 
 const Awards: React.FC = () => {
+  const { user: authUser, isLoading: authLoading } = useAuth();
+
   /* ---------- Data ---------- */
   const [awards, setAwards] = useState<Award[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,7 +126,7 @@ const Awards: React.FC = () => {
   const [selectedAward, setSelectedAward] = useState<Award | null>(null);
 
   /* ================================================================ */
-  /* Fetch from /api/v1/awards/                                        */
+  /* Fetch                                                             */
   /* ================================================================ */
 
   const fetchAwards = async () => {
@@ -164,8 +168,14 @@ const Awards: React.FC = () => {
   };
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!authUser) {
+      setLoading(false);
+      return;
+    }
     fetchAwards();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, authUser?.id]);
 
   /* ================================================================ */
   /* Derived                                                           */
@@ -206,12 +216,8 @@ const Awards: React.FC = () => {
   /* Loading / error                                                   */
   /* ================================================================ */
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
-      </div>
-    );
+  if (authLoading || loading) {
+    return <SkeletonListPage rows={8} cols={6} kpis toolbar />;
   }
 
   if (error) {

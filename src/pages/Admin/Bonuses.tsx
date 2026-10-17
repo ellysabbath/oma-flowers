@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 
 import { bonusAPI } from '../../api/bonuses';
+import { SkeletonListPage } from '../../components/common/Skeleton';
+import { useAuth } from '../../context/AuthContext';
 import type { Bonus as ApiBonus } from '../../types';
 
 /* ------------------------------------------------------------------ */
@@ -144,6 +146,8 @@ const statusColors: Record<string, string> = {
 /* ------------------------------------------------------------------ */
 
 const Bonuses: React.FC = () => {
+  const { user: authUser, isLoading: authLoading } = useAuth();
+
   /* ---------- Data ---------- */
   const [bonuses, setBonuses] = useState<Bonus[]>([]);
   const [loading, setLoading] = useState(true);
@@ -162,7 +166,7 @@ const Bonuses: React.FC = () => {
   const [selectedBonus, setSelectedBonus] = useState<Bonus | null>(null);
 
   /* ================================================================ */
-  /* Fetch from /api/v1/bonuses/                                       */
+  /* Fetch                                                             */
   /* ================================================================ */
 
   const fetchBonuses = async () => {
@@ -204,11 +208,17 @@ const Bonuses: React.FC = () => {
   };
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!authUser) {
+      setLoading(false);
+      return;
+    }
     fetchBonuses();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, authUser?.id]);
 
   /* ================================================================ */
-  /* Status change — local (backend PATCH pending)                     */
+  /* Status change                                                     */
   /* ================================================================ */
 
   const handleStatusChange = (
@@ -329,12 +339,8 @@ const Bonuses: React.FC = () => {
   /* Loading / error                                                   */
   /* ================================================================ */
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
-      </div>
-    );
+  if (authLoading || loading) {
+    return <SkeletonListPage rows={8} cols={7} kpis toolbar />;
   }
 
   if (error) {
@@ -574,7 +580,6 @@ const Bonuses: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Inline status dropdown */}
                 <div className="relative">
                   <select
                     value={bonus.rawStatus}
@@ -748,7 +753,6 @@ const Bonuses: React.FC = () => {
                 </p>
               </div>
 
-              {/* Status buttons */}
               <div className="border-t border-amber-100/30 pt-4">
                 <p className="text-sm font-medium text-gray-500 mb-3">
                   Change Status

@@ -28,6 +28,7 @@ import {
 import { cartAPI } from '../../api/cart';
 import { distributorAPI } from '../../api/distributors';
 import { useAuth } from '../../context/AuthContext';
+import { SkeletonListPage } from '../../components/common/Skeleton';
 import type { Cart as ApiCart, Distributor } from '../../types';
 
 /* ------------------------------------------------------------------ */
@@ -41,10 +42,10 @@ interface SoldItem {
   quantity: number;
   price: number;
   bv: number;
-  subtotal: number;      // TSh for this line (only my portion)
-  itemPBV: number;       // PBV earned on this line
-  itemCommission: number; // TSh earned on this line
-  isMine: boolean;       // true if I'm the seller of this line
+  subtotal: number;
+  itemPBV: number;
+  itemCommission: number;
+  isMine: boolean;
 }
 
 interface DisplaySale {
@@ -54,11 +55,11 @@ interface DisplaySale {
   buyerEmail: string;
   buyerPhone: string;
   itemCount: number;
-  myItemCount: number;    // lines where I'm the seller
-  myBV: number;           // total BV I sold on this cart
-  myPBV: number;          // PBV I earned on this cart
-  myRevenue: number;      // TSh revenue I generated
-  myCommission: number;   // commission in TSh
+  myItemCount: number;
+  myBV: number;
+  myPBV: number;
+  myRevenue: number;
+  myCommission: number;
   bonusPct: number;
   status: 'Active' | 'Converted' | 'Abandoned' | 'Expired';
   date: string;
@@ -108,7 +109,6 @@ const formatDate = (iso?: string) => {
   }
 };
 
-/* ---- Full numbers — no K/M abbreviations ---- */
 const fmtTSh = (n: number) =>
   `TSh ${Math.round(n).toLocaleString('en-US')}`;
 
@@ -160,7 +160,7 @@ const CopyCodeButton: React.FC<{ code: string }> = ({ code }) => {
 /* ================================================================== */
 
 const DistributorOrders: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
 
   const [me, setMe] = useState<Distributor | null>(null);
   const [sales, setSales] = useState<DisplaySale[]>([]);
@@ -200,7 +200,6 @@ const DistributorOrders: React.FC = () => {
 
       const myBonusPct = num(myProfile.bonus_percentage);
 
-      /* ---- Build display rows for carts I sold in ---- */
       const transformed: DisplaySale[] = [];
 
       for (const cart of allCarts as any[]) {
@@ -209,7 +208,6 @@ const DistributorOrders: React.FC = () => {
 
         const cartDistId = cart.distributor?.id ?? cart.distributor_id;
 
-        /* ---- Compute my slice of this cart ---- */
         let myBV = 0;
         let myPBV = 0;
         let myRevenue = 0;
@@ -257,7 +255,6 @@ const DistributorOrders: React.FC = () => {
           };
         });
 
-        // Skip carts where I'm not the seller at all
         if (myItemCount === 0) continue;
 
         const buyer = cart.user || {};
@@ -310,9 +307,14 @@ const DistributorOrders: React.FC = () => {
   };
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     loadSales();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [authLoading, user?.id]);
 
   /* ================================================================ */
   /* Filters                                                          */
@@ -389,14 +391,10 @@ const DistributorOrders: React.FC = () => {
   };
 
   /* ================================================================ */
-  /* Loading / error                                                  */
+  /* Loading — skeleton, not spinner                                  */
   /* ================================================================ */
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-10 h-10 text-amber-500 animate-spin" />
-      </div>
-    );
+  if (authLoading || loading) {
+    return <SkeletonListPage rows={8} cols={7} kpis toolbar />;
   }
 
   if (error) {
@@ -683,7 +681,6 @@ const DistributorOrders: React.FC = () => {
                         className="hover:bg-amber-50/30 transition-colors cursor-pointer"
                         onClick={() => setSelectedSale(sale)}
                       >
-                        {/* Cart code */}
                         <td className="px-4 py-3">
                           <div className="flex items-center">
                             <span className="font-mono text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
@@ -693,7 +690,6 @@ const DistributorOrders: React.FC = () => {
                           </div>
                         </td>
 
-                        {/* Buyer */}
                         <td className="px-4 py-3">
                           <p className="text-sm font-medium text-gray-700">
                             {sale.buyerName}
@@ -703,22 +699,18 @@ const DistributorOrders: React.FC = () => {
                           </p>
                         </td>
 
-                        {/* My items */}
                         <td className="px-4 py-3 hidden md:table-cell text-sm text-gray-600">
                           {sale.myItemCount} of {sale.itemCount}
                         </td>
 
-                        {/* My BV */}
                         <td className="px-4 py-3 hidden lg:table-cell text-sm text-purple-700 font-medium">
                           {fmtBV(sale.myBV)}
                         </td>
 
-                        {/* My PBV */}
                         <td className="px-4 py-3 hidden lg:table-cell text-sm text-blue-700 font-medium">
                           {fmtBV(sale.myPBV)}
                         </td>
 
-                        {/* Status */}
                         <td className="px-4 py-3">
                           <span
                             className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -730,17 +722,14 @@ const DistributorOrders: React.FC = () => {
                           </span>
                         </td>
 
-                        {/* Date */}
                         <td className="px-4 py-3 hidden sm:table-cell text-sm text-gray-500">
                           {sale.date}
                         </td>
 
-                        {/* My Revenue */}
                         <td className="px-4 py-3 text-right text-sm font-medium text-amber-600">
                           {fmtTSh(sale.myRevenue)}
                         </td>
 
-                        {/* My Commission */}
                         <td className="px-4 py-3 text-right">
                           <p className="text-sm font-bold text-green-600">
                             {fmtTSh(sale.myCommission)}
@@ -750,7 +739,6 @@ const DistributorOrders: React.FC = () => {
                           </p>
                         </td>
 
-                        {/* Actions */}
                         <td className="px-4 py-3 text-right">
                           <button
                             onClick={(e) => {
@@ -790,7 +778,6 @@ const DistributorOrders: React.FC = () => {
               className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Header */}
               <div className="p-6 border-b border-amber-100/50 flex items-center justify-between">
                 <div>
                   <h3 className="text-xl font-bold text-gray-800">
@@ -811,9 +798,7 @@ const DistributorOrders: React.FC = () => {
                 </button>
               </div>
 
-              {/* Body */}
               <div className="p-6 space-y-5">
-                {/* Buyer */}
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm font-medium text-gray-500 flex items-center gap-2">
                     <User2Icon size={16} /> Buyer
@@ -834,7 +819,6 @@ const DistributorOrders: React.FC = () => {
                   )}
                 </div>
 
-                {/* Commission formula for this sale */}
                 <div className="p-4 bg-gradient-to-r from-amber-50 to-amber-100/40 rounded-lg border border-amber-200/50">
                   <p className="text-sm font-semibold text-gray-800 flex items-center gap-2 mb-3">
                     <Calculator size={16} className="text-amber-600" />
@@ -871,7 +855,6 @@ const DistributorOrders: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Numbers grid */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <StatBox
                     label="My Items"
@@ -895,7 +878,6 @@ const DistributorOrders: React.FC = () => {
                   />
                 </div>
 
-                {/* Items breakdown */}
                 {selectedSale.items.length > 0 && (
                   <div>
                     <p className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
@@ -986,7 +968,6 @@ const DistributorOrders: React.FC = () => {
                   </div>
                 )}
 
-                {/* Sellers on cart */}
                 {selectedSale.sellers.length > 0 && (
                   <div>
                     <p className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
@@ -1005,7 +986,6 @@ const DistributorOrders: React.FC = () => {
                   </div>
                 )}
 
-                {/* Summary */}
                 <div className="p-4 bg-amber-50 rounded-lg border border-amber-200/50">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">
@@ -1025,7 +1005,6 @@ const DistributorOrders: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Notes */}
                 {selectedSale.notes && (
                   <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200/30">
                     <p className="text-sm font-medium text-gray-500">Notes</p>
@@ -1035,7 +1014,6 @@ const DistributorOrders: React.FC = () => {
                   </div>
                 )}
 
-                {/* Footer */}
                 <div className="border-t border-amber-100/30 pt-4 flex gap-3">
                   <button
                     onClick={() => window.print()}

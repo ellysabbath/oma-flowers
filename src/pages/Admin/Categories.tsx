@@ -19,6 +19,8 @@ import {
   FolderTree,
 } from 'lucide-react';
 import { categoryAPI } from '../../api/categories';
+import { SkeletonListPage } from '../../components/common/Skeleton';
+import { useAuth } from '../../context/AuthContext';
 import type { Category } from '../../types';
 
 /* ------------------------------------------------------------------ */
@@ -46,7 +48,6 @@ const statusColors: Record<string, string> = {
 /* Small helpers                                                       */
 /* ------------------------------------------------------------------ */
 
-/** Compose the auto-suggested code: e.g. Classic + A → CCA */
 const suggestCode = (type: string, classType: string): string => {
   const t = type === 'Classic' ? 'C' : type === 'Luxury' ? 'L' : '';
   return `${t}C${classType || ''}`;
@@ -55,8 +56,7 @@ const suggestCode = (type: string, classType: string): string => {
 const formatTypeLabel = (type?: string) =>
   type === 'Classic' ? 'Classic' : type === 'Luxury' ? 'Luxury' : '—';
 
-const formatClassLabel = (cls?: string) =>
-  cls ? `Class ${cls}` : '—';
+const formatClassLabel = (cls?: string) => (cls ? `Class ${cls}` : '—');
 
 /* ------------------------------------------------------------------ */
 /* Add Category Modal                                                  */
@@ -109,8 +109,6 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
     setFormData((prev) => {
       const next = { ...prev, [name]: value } as typeof prev;
 
-      // Auto-suggest code when type/class changes and the user hasn't
-      // typed a custom code yet.
       if ((name === 'type' || name === 'class_type') && !codeTouched) {
         next.code = suggestCode(
           name === 'type' ? value : prev.type,
@@ -214,8 +212,9 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
                 placeholder="CCA, CCB, LCA…"
               />
               <p className="text-xs text-gray-400 mt-1">
-                Auto-suggested as {suggestCode(formData.type, formData.class_type)} —
-                edit if needed.
+                Auto-suggested as{' '}
+                {suggestCode(formData.type, formData.class_type)} — edit if
+                needed.
               </p>
               {errors.code && (
                 <p className="text-sm text-red-500 mt-1">{errors.code}</p>
@@ -934,6 +933,7 @@ const ViewCategoryModal: React.FC<ViewCategoryModalProps> = ({
 
 const Categories: React.FC = () => {
   const navigate = useNavigate();
+  const { user: authUser, isLoading: authLoading } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('All');
@@ -974,8 +974,14 @@ const Categories: React.FC = () => {
   };
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!authUser) {
+      setLoading(false);
+      return;
+    }
     loadCategories();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, authUser?.id]);
 
   /* ---------- CRUD ---------- */
 
@@ -1057,7 +1063,9 @@ const Categories: React.FC = () => {
 
   /* ---------- Stats ---------- */
   const totalCategories = categories.length;
-  const activeCategories = categories.filter((c) => c.status === 'active').length;
+  const activeCategories = categories.filter(
+    (c) => c.status === 'active'
+  ).length;
   const totalBV = categories.reduce((sum, c) => sum + (c.bv || 0), 0);
   const totalProducts = categories.reduce(
     (sum, c) => sum + (c.product_count || 0),
@@ -1068,7 +1076,6 @@ const Categories: React.FC = () => {
 
   const handleViewProducts = (cat: Category) => {
     setViewModalOpen(false);
-    // Navigate to admin products, filtered by this category
     navigate(`/admin/products?category=${cat.id}`);
   };
 
@@ -1078,16 +1085,9 @@ const Categories: React.FC = () => {
     setEditModalOpen(true);
   };
 
-  /* ---------- Loading ---------- */
-  if (loading) {
-    return (
-      <div className="p-4 md:p-6 space-y-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-amber-500 border-t-transparent"></div>
-          <p className="mt-4 text-gray-500">Loading categories...</p>
-        </div>
-      </div>
-    );
+  /* ---------- Loading — skeleton, not spinner ---------- */
+  if (authLoading || loading) {
+    return <SkeletonListPage rows={8} cols={7} kpis toolbar />;
   }
 
   return (

@@ -13,15 +13,17 @@ import {
   X,
   AlertCircle,
   RefreshCw,
-  Package,           // 👈 NEW
-  Award,             // 👈 NEW
+  Package,
+  
 } from 'lucide-react';
 import { Award as AwardIcon } from 'lucide-react';
 import { distributorAPI } from '../../api/distributors';
 import { userAPI } from '../../api/users';
-import { productAPI } from '../../api/products';        // 👈 NEW
+import { productAPI } from '../../api/products';
 import { ViewModal, EditModal, DeleteModal } from '../../components/modals';
-import type { Distributor, User as UserType, Product } from '../../types'; // 👈 Product
+import type { Distributor, User as UserType, Product } from '../../types';
+import { SkeletonListPage } from '../../components/common/Skeleton';
+import { useAuth } from '../../context/AuthContext';
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -421,13 +423,15 @@ const AddDistributorModal: React.FC<AddDistributorModalProps> = ({
 /* ------------------------------------------------------------------ */
 
 const Distributors: React.FC = () => {
+  const { user: authUser, isLoading: authLoading } = useAuth();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRank, setFilterRank] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
   const [selectedDistributor, setSelectedDistributor] =
     useState<Distributor | null>(null);
   const [distributors, setDistributors] = useState<Distributor[]>([]);
-  const [allProducts, setAllProducts] = useState<Product[]>([]);        // 👈 NEW
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [stats, setStats] = useState<DistributorStats>({
     total: 0,
     active: 0,
@@ -468,7 +472,7 @@ const Distributors: React.FC = () => {
 
       const [distData, productsData] = await Promise.all([
         distributorAPI.getAll(),
-        productAPI.getAll(),                                  // 👈 NEW
+        productAPI.getAll(),
       ]);
 
       setDistributors(distData);
@@ -476,7 +480,7 @@ const Distributors: React.FC = () => {
       const normalizedProducts: Product[] = Array.isArray(productsData)
         ? productsData
         : (productsData as any)?.results || [];
-      setAllProducts(normalizedProducts);                    // 👈 NEW
+      setAllProducts(normalizedProducts);
 
       const active = distData.filter((d) => d.user?.status === 'active').length;
       const pending = distData.filter((d) => d.user?.status === 'pending').length;
@@ -531,10 +535,16 @@ const Distributors: React.FC = () => {
     }
   };
 
+  /* Gate the initial fetch on auth being ready */
   useEffect(() => {
+    if (authLoading) return;
+    if (!authUser) {
+      setLoading(false);
+      return;
+    }
     loadDistributors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authLoading, authUser?.id]);
 
   /* --------------------------------------------------------------- */
   /* Filters                                                         */
@@ -685,17 +695,10 @@ const Distributors: React.FC = () => {
   };
 
   /* --------------------------------------------------------------- */
-  /* Loading                                                         */
+  /* Loading — skeleton, not spinner                                 */
   /* --------------------------------------------------------------- */
-  if (loading) {
-    return (
-      <div className="p-4 md:p-6 space-y-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-amber-500 border-t-transparent"></div>
-          <p className="mt-4 text-gray-500">Loading distributors...</p>
-        </div>
-      </div>
-    );
+  if (authLoading || loading) {
+    return <SkeletonListPage rows={8} cols={7} kpis toolbar />;
   }
 
   /* --------------------------------------------------------------- */
@@ -710,7 +713,6 @@ const Distributors: React.FC = () => {
     return name.includes(q) || email.includes(q);
   });
 
-  /* 👇 NEW — products sold by the selected distributor */
   const soldProducts = selectedDistributor
     ? allProducts.filter((p) => p.seller === selectedDistributor.id)
     : [];
@@ -1138,7 +1140,7 @@ const Distributors: React.FC = () => {
               </div>
             </div>
 
-            {/* 👇 NEW — Products Sold by this distributor */}
+            {/* Products Sold */}
             <div className="border-t border-amber-100/30 pt-4">
               <div className="flex items-center justify-between mb-2">
                 <h5 className="text-sm font-medium text-gray-500 flex items-center gap-2">
@@ -1150,7 +1152,6 @@ const Distributors: React.FC = () => {
                 </span>
               </div>
 
-              {/* Mini summary */}
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div className="bg-amber-50/60 rounded-lg p-3">
                   <p className="text-xs text-gray-500">Total BV from Products</p>
@@ -1166,7 +1167,6 @@ const Distributors: React.FC = () => {
                 </div>
               </div>
 
-              {/* Product list */}
               {soldProducts.length === 0 ? (
                 <div className="p-4 text-sm text-gray-500 text-center bg-gray-50 rounded-lg">
                   This distributor doesn't own any products yet.
@@ -1238,7 +1238,7 @@ const Distributors: React.FC = () => {
               )}
             </div>
 
-            {/* Network — counts + downline list */}
+            {/* Network */}
             <div className="border-t border-amber-100/30 pt-4">
               <h5 className="text-sm font-medium text-gray-500 mb-2">
                 Network
@@ -1259,7 +1259,6 @@ const Distributors: React.FC = () => {
                 </div>
               </div>
 
-              {/* Downline members */}
               <div className="bg-white rounded-lg border border-amber-100/50 overflow-hidden">
                 <div className="px-3 py-2 bg-amber-50/50 border-b border-amber-100/50 flex items-center gap-2">
                   <Search size={14} className="text-gray-400 shrink-0" />

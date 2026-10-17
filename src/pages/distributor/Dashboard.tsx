@@ -1,6 +1,6 @@
 // src/pages/distributor/Dashboard.tsx
 // Everything shown here belongs ONLY to the logged-in distributor.
-// Identity comes from /distributors/me/hierarchy/ — no useAuth(), no roles.
+// Identity comes from /distributors/me/hierarchy/ — no useAuth() roles.
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -18,6 +18,8 @@ import {
 import { distributorAPI } from '../../api/distributors';
 import { cartAPI } from '../../api/cart';
 import { commissionAPI } from '../../api/commissions';
+import { SkeletonDashboard } from '../../components/common/Skeleton';
+import { useAuth } from '../../context/AuthContext';
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -84,10 +86,6 @@ const getStatusColor = (status: string) =>
   orderStatusColors[String(status).toLowerCase()] ||
   'bg-gray-100 text-gray-700';
 
-/**
- * Best-effort "my name" from a distributor object.
- * Falls back to the email's local part if no full name is available.
- */
 const pickDisplayName = (profile: any): string => {
   if (!profile) return 'Distributor';
 
@@ -132,6 +130,8 @@ const pickDisplayName = (profile: any): string => {
 /* ------------------------------------------------------------------ */
 
 const DistributorDashboard: React.FC = () => {
+  const { user: authUser, isLoading: authLoading } = useAuth();
+
   const [stats, setStats] = useState<DistributorStats | null>(null);
   const [myProfile, setMyProfile] = useState<any | null>(null);
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
@@ -309,20 +309,21 @@ const DistributorDashboard: React.FC = () => {
   };
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!authUser) {
+      setLoading(false);
+      return;
+    }
     loadDashboard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authLoading, authUser?.id]);
 
   /* ================================================================ */
-  /* Loading / errors                                                  */
+  /* Loading — skeleton, not spinner                                  */
   /* ================================================================ */
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
-      </div>
-    );
+  if (authLoading || loading) {
+    return <SkeletonDashboard />;
   }
 
   if (noProfile) {
@@ -483,7 +484,7 @@ const DistributorDashboard: React.FC = () => {
 };
 
 /* ------------------------------------------------------------------ */
-/* Recent Orders (MY carts)                                            */
+/* Recent Orders                                                       */
 /* ------------------------------------------------------------------ */
 
 const RecentOrders: React.FC<{ orders: RecentOrder[] }> = ({ orders }) => {
@@ -535,7 +536,7 @@ const RecentOrders: React.FC<{ orders: RecentOrder[] }> = ({ orders }) => {
 };
 
 /* ------------------------------------------------------------------ */
-/* Downline (MY direct downline)                                       */
+/* Downline Activity                                                   */
 /* ------------------------------------------------------------------ */
 
 const DownlineActivity: React.FC<{ members: DownlineMember[] }> = ({

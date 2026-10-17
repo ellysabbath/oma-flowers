@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 
 import { commissionAPI } from '../../api/commissions';
+import { SkeletonListPage } from '../../components/common/Skeleton';
+import { useAuth } from '../../context/AuthContext';
 import type { Commission as ApiCommission } from '../../types';
 
 /* ------------------------------------------------------------------ */
@@ -118,7 +120,8 @@ const statusColors: Record<string, string> = {
 /* ------------------------------------------------------------------ */
 
 const Commissions: React.FC = () => {
-  /* ---------- Data ---------- */
+  const { user: authUser, isLoading: authLoading } = useAuth();
+
   const [allCommissions, setAllCommissions] = useState<Commission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -138,7 +141,7 @@ const Commissions: React.FC = () => {
     useState<Commission | null>(null);
 
   /* ================================================================ */
-  /* Fetch from /api/v1/commissions/                                   */
+  /* Fetch                                                             */
   /* ================================================================ */
 
   const fetchCommissions = async () => {
@@ -190,11 +193,17 @@ const Commissions: React.FC = () => {
   };
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!authUser) {
+      setLoading(false);
+      return;
+    }
     fetchCommissions();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, authUser?.id]);
 
   /* ================================================================ */
-  /* Update status — PATCH to backend                                  */
+  /* Update status                                                     */
   /* ================================================================ */
 
   const handleStatusChange = async (
@@ -203,7 +212,6 @@ const Commissions: React.FC = () => {
   ) => {
     const paymentDate = newStatus === 'paid' ? todayISO() : null;
 
-    // Optimistic UI
     setAllCommissions((prev) =>
       prev.map((c) =>
         c.id === commissionId
@@ -250,7 +258,7 @@ const Commissions: React.FC = () => {
           'Failed to update status.',
       });
       setTimeout(() => setBanner(null), 4000);
-      await fetchCommissions(); // revert by refetch
+      await fetchCommissions();
     } finally {
       setAllCommissions((prev) =>
         prev.map((c) =>
@@ -353,12 +361,8 @@ const Commissions: React.FC = () => {
   /* Loading / error                                                   */
   /* ================================================================ */
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
-      </div>
-    );
+  if (authLoading || loading) {
+    return <SkeletonListPage rows={8} cols={7} kpis toolbar />;
   }
 
   if (error) {
@@ -664,7 +668,6 @@ const Commissions: React.FC = () => {
                         {commission.percentage}%
                       </td>
 
-                      {/* Status — inline editable */}
                       <td className="px-4 py-3">
                         <div className="relative inline-block">
                           <select
@@ -879,7 +882,6 @@ const Commissions: React.FC = () => {
                   </div>
                 )}
 
-              {/* Status buttons */}
               <div className="border-t border-amber-100/30 pt-4">
                 <p className="text-sm font-medium text-gray-500 mb-3">
                   Change Status

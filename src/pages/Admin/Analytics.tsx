@@ -30,6 +30,8 @@ import { commissionAPI } from '../../api/commissions';
 import { bonusAPI } from '../../api/bonuses';
 import { cartAPI } from '../../api/cart';
 import { productAPI } from '../../api/products';
+import { SkeletonAnalyticsPage } from '../../components/common/Skeleton';
+import { useAuth } from '../../context/AuthContext';
 
 import type {
   Distributor,
@@ -64,7 +66,7 @@ interface MonthlyPoint {
   revenue: number;
   commissions: number;
   bonuses: number;
-  sales: number; // 👈 was "carts" — now shows converted sales only
+  sales: number;
 }
 
 interface RankBucket {
@@ -104,7 +106,6 @@ const monthKey = (iso: string) => {
   }
 };
 
-/* 👇 SAME as Orders.tsx — PBV calc */
 const calcPBV = (
   bv: number,
   bonusPercentage: number | null | undefined
@@ -132,6 +133,8 @@ const RANK_COLORS: Record<string, string> = {
 /* ------------------------------------------------------------------ */
 
 const Analytics: React.FC = () => {
+  const { user: authUser, isLoading: authLoading } = useAuth();
+
   /* ---------- State ---------- */
   const [distributors, setDistributors] = useState<Distributor[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
@@ -181,11 +184,17 @@ const Analytics: React.FC = () => {
   };
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!authUser) {
+      setLoading(false);
+      return;
+    }
     loadAll();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, authUser?.id]);
 
   /* ================================================================ */
-  /* ✅ CONVERTED CARTS ONLY (MAUZO) — same as Orders.tsx             */
+  /* Converted carts only (Mauzo)                                     */
   /* ================================================================ */
   const convertedCarts = useMemo(
     () =>
@@ -196,8 +205,7 @@ const Analytics: React.FC = () => {
   );
 
   /* ================================================================ */
-  /* Per-seller aggregation — built like Orders.tsx                   */
-  /* Groups by item.seller_id, computes BV / PBV / amount / items     */
+  /* Per-seller aggregation                                           */
   /* ================================================================ */
   const sellerAggregates = useMemo(() => {
     type Agg = {
@@ -256,7 +264,6 @@ const Analytics: React.FC = () => {
       }
     }
 
-    // Merge with distributor records (prefer distributor name/rank)
     const distributorById = new Map<number, Distributor>();
     distributors.forEach((d) => distributorById.set(d.id, d));
 
@@ -284,7 +291,7 @@ const Analytics: React.FC = () => {
   }, [convertedCarts, distributors]);
 
   /* ================================================================ */
-  /* Derived KPIs                                                      */
+  /* Derived KPIs                                                     */
   /* ================================================================ */
 
   const kpis: Kpis = useMemo(() => {
@@ -349,7 +356,7 @@ const Analytics: React.FC = () => {
   ]);
 
   /* ================================================================ */
-  /* Monthly series — SALES (converted carts only)                    */
+  /* Monthly series                                                   */
   /* ================================================================ */
 
   const monthlyData: MonthlyPoint[] = useMemo(() => {
@@ -364,7 +371,6 @@ const Analytics: React.FC = () => {
       }
     >();
 
-    // ✅ Bucket converted carts as SALES
     for (const c of convertedCarts) {
       const key = monthKey(c.created_at);
       if (!key) continue;
@@ -383,7 +389,6 @@ const Analytics: React.FC = () => {
       bucket.sales += 1;
     }
 
-    // Bucket commissions by month
     for (const cm of commissions) {
       const key = monthKey(cm.created_at);
       if (!key) continue;
@@ -400,7 +405,6 @@ const Analytics: React.FC = () => {
       buckets.get(key)!.commissions += num(cm.amount);
     }
 
-    // Bucket bonuses by month
     for (const b of bonuses) {
       const key = monthKey(b.created_at);
       if (!key) continue;
@@ -425,7 +429,7 @@ const Analytics: React.FC = () => {
   }, [convertedCarts, commissions, bonuses]);
 
   /* ================================================================ */
-  /* Top Performers — from item-level seller_id (like Orders.tsx)     */
+  /* Top performers                                                   */
   /* ================================================================ */
 
   const topPerformers = useMemo(() => {
@@ -443,7 +447,7 @@ const Analytics: React.FC = () => {
   }, [sellerAggregates]);
 
   /* ================================================================ */
-  /* Rank distribution                                                 */
+  /* Rank distribution                                                */
   /* ================================================================ */
 
   const rankDistribution: RankBucket[] = useMemo(() => {
@@ -464,7 +468,7 @@ const Analytics: React.FC = () => {
   }, [distributors]);
 
   /* ================================================================ */
-  /* Status breakdown                                                  */
+  /* Status breakdown                                                 */
   /* ================================================================ */
 
   const statusBreakdown = useMemo(() => {
@@ -477,7 +481,7 @@ const Analytics: React.FC = () => {
   }, [commissions]);
 
   /* ================================================================ */
-  /* Chart data for selected metric                                    */
+  /* Chart data                                                       */
   /* ================================================================ */
 
   const chartValues = monthlyData.map((m) => ({
@@ -488,15 +492,11 @@ const Analytics: React.FC = () => {
   const maxChartValue = Math.max(1, ...chartValues.map((v) => v.value));
 
   /* ================================================================ */
-  /* Loading / error                                                   */
+  /* Loading — skeleton, not spinner                                  */
   /* ================================================================ */
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
-      </div>
-    );
+  if (authLoading || loading) {
+    return <SkeletonAnalyticsPage />;
   }
 
   if (error) {
@@ -520,7 +520,7 @@ const Analytics: React.FC = () => {
   }
 
   /* ================================================================ */
-  /* Render                                                            */
+  /* Render                                                           */
   /* ================================================================ */
 
   return (
@@ -557,7 +557,7 @@ const Analytics: React.FC = () => {
         </div>
       </div>
 
-      {/* HERO STRIP — headline KPIs */}
+      {/* HERO STRIP */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           icon={<DollarSign size={22} />}
@@ -597,7 +597,7 @@ const Analytics: React.FC = () => {
         />
       </div>
 
-      {/* MONEY STRIP — commissions & bonuses */}
+      {/* MONEY STRIP */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           icon={<BarChart3 size={22} />}
@@ -643,7 +643,7 @@ const Analytics: React.FC = () => {
         />
       </div>
 
-      {/* MAIN CHART — monthly performance */}
+      {/* MAIN CHART */}
       <div className="bg-white rounded-xl shadow-sm border border-amber-200/30 p-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
           <div>
@@ -679,7 +679,6 @@ const Analytics: React.FC = () => {
           </div>
         </div>
 
-        {/* Bar chart */}
         {chartValues.length === 0 ? (
           <div className="h-64 flex items-center justify-center text-gray-400 text-sm">
             <BarChart3 size={32} className="mr-2 text-gray-300" />
@@ -714,7 +713,6 @@ const Analytics: React.FC = () => {
           </div>
         )}
 
-        {/* Bottom summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-5 border-t border-amber-100/30">
           <MiniStat
             label="Peak Month"
@@ -746,9 +744,9 @@ const Analytics: React.FC = () => {
         </div>
       </div>
 
-      {/* TWO COLUMN — top performers + rank donut */}
+      {/* TWO COLUMN */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Top performers — by item-level seller */}
+        {/* Top performers */}
         <div className="bg-white rounded-xl shadow-sm border border-amber-200/30 p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -821,7 +819,7 @@ const Analytics: React.FC = () => {
           )}
         </div>
 
-        {/* Rank distribution (donut) */}
+        {/* Rank distribution */}
         <div className="bg-white rounded-xl shadow-sm border border-amber-200/30 p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-gray-800">Rank Distribution</h3>
@@ -835,7 +833,6 @@ const Analytics: React.FC = () => {
             />
           ) : (
             <div className="flex items-center gap-6 flex-wrap">
-              {/* Donut */}
               <div className="relative w-40 h-40 shrink-0 mx-auto">
                 <DonutChart buckets={rankDistribution} />
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -846,7 +843,6 @@ const Analytics: React.FC = () => {
                 </div>
               </div>
 
-              {/* Legend */}
               <div className="flex-1 min-w-[180px] space-y-2">
                 {rankDistribution.map((r) => (
                   <div

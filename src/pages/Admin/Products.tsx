@@ -22,6 +22,8 @@ import {
 import { productAPI } from '../../api/products';
 import { categoryAPI } from '../../api/categories';
 import { distributorAPI } from '../../api/distributors';
+import { SkeletonProductGrid } from '../../components/common/Skeleton';
+import { useAuth } from '../../context/AuthContext';
 import type { Product, Category, Distributor } from '../../types';
 
 /* ------------------------------------------------------------------ */
@@ -171,7 +173,6 @@ const formatPrice = (price: number | string | null | undefined) =>
 const num = (v: number | string | null | undefined): number =>
   v === null || v === undefined ? 0 : Number(v);
 
-/** Compose a suggested SKU like "CCA-0001" based on the picked category */
 const suggestSku = (
   category: Category | undefined,
   allProducts: Product[]
@@ -338,7 +339,6 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
             }
           />
 
-          {/* Category */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Category <span className="text-red-500">*</span>
@@ -363,7 +363,6 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
             )}
           </div>
 
-          {/* Seller */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Seller
@@ -1132,6 +1131,8 @@ const ViewProductModal: React.FC<ViewProductModalProps> = ({
 /* ------------------------------------------------------------------ */
 
 const Products: React.FC = () => {
+  const { user: authUser, isLoading: authLoading } = useAuth();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('All');
   const [filterType, setFilterType] = useState('All');
@@ -1158,11 +1159,12 @@ const Products: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [categoriesData, productsData, distributorsData] = await Promise.all([
-        categoryAPI.getAll(),
-        productAPI.getAll(),
-        distributorAPI.getAll(),
-      ]);
+      const [categoriesData, productsData, distributorsData] =
+        await Promise.all([
+          categoryAPI.getAll(),
+          productAPI.getAll(),
+          distributorAPI.getAll(),
+        ]);
 
       const normalizedCategories: Category[] = Array.isArray(categoriesData)
         ? categoriesData
@@ -1174,7 +1176,9 @@ const Products: React.FC = () => {
         : (productsData as any)?.results || [];
       setProducts(normalizedProducts);
 
-      const normalizedDistributors: Distributor[] = Array.isArray(distributorsData)
+      const normalizedDistributors: Distributor[] = Array.isArray(
+        distributorsData
+      )
         ? distributorsData
         : (distributorsData as any)?.results || [];
       setDistributors(normalizedDistributors);
@@ -1182,7 +1186,8 @@ const Products: React.FC = () => {
       console.error('Error loading data:', err);
       let errorMessage = 'Failed to load products.';
       if (err.response?.data?.error) errorMessage = err.response.data.error;
-      else if (err.response?.data?.detail) errorMessage = err.response.data.detail;
+      else if (err.response?.data?.detail)
+        errorMessage = err.response.data.detail;
       else if (err.message) errorMessage = err.message;
       setError(errorMessage);
     } finally {
@@ -1190,9 +1195,16 @@ const Products: React.FC = () => {
     }
   };
 
+  /* Gate the initial fetch on auth being ready */
   useEffect(() => {
+    if (authLoading) return;
+    if (!authUser) {
+      setLoading(false);
+      return;
+    }
     loadData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, authUser?.id]);
 
   /* ---------- Stats ---------- */
   const totalProducts = products.length;
@@ -1323,16 +1335,9 @@ const Products: React.FC = () => {
     coming_soon: 'bg-yellow-100 text-yellow-700',
   };
 
-  /* ---------- Loading ---------- */
-  if (loading) {
-    return (
-      <div className="p-4 md:p-6 space-y-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-amber-500 border-t-transparent"></div>
-          <p className="mt-4 text-gray-500">Loading products...</p>
-        </div>
-      </div>
-    );
+  /* ---------- Loading — skeleton, not spinner ---------- */
+  if (authLoading || loading) {
+    return <SkeletonProductGrid count={8} />;
   }
 
   return (

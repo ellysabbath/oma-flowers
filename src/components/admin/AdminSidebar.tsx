@@ -14,12 +14,14 @@ import {
   Store,
   Home,
   LogOut,
-  Crown,
   TrendingUp,
   UserCog,
 } from 'lucide-react';
 import { authAPI } from '../../api/auth';
 import type { User } from '../../types';
+
+// 👇 Import the logo
+import oma from '../../../public/oma.jpeg';
 
 interface MenuItem {
   id: number;
@@ -57,8 +59,6 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen, onClose }) => {
   const [loading, setLoading] = useState(true);
 
   const isActive = (path: string) => {
-    // Exact match for /admin, prefix match for the rest so
-    // /admin/users/123 still highlights "Users".
     if (path === '/admin') return location.pathname === '/admin';
     return (
       location.pathname === path ||
@@ -66,7 +66,6 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen, onClose }) => {
     );
   };
 
-  // Fetch user profile on mount
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
@@ -192,12 +191,13 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen, onClose }) => {
         {/* Logo */}
         <div className="flex items-center justify-center h-20 border-b border-amber-600/30 px-4 flex-shrink-0">
           <Link to="/admin" className="flex items-center gap-3 group">
-            <div className="relative">
-              <Crown
-                className="text-amber-300 group-hover:text-amber-200 transition-colors"
-                size={32}
+            <div className="relative shrink-0">
+              <img
+                src={oma}
+                alt="OMA Flowers"
+                className="w-12 h-12 rounded-full object-cover border-2 border-amber-400/40 bg-white group-hover:border-amber-300 transition-colors"
               />
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
+              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
             </div>
             <span
               className={`

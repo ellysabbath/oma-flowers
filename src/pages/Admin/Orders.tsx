@@ -1,5 +1,4 @@
-// src/pages/admin/Orders.tsx — full file with empty-cart filtering
-
+// src/pages/admin/Orders.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search,
@@ -22,13 +21,15 @@ import {
   Award,
   Copy,
   Check,
-  EyeOff,       // 👈 NEW
+  EyeOff,
 } from 'lucide-react';
 
 import { cartAPI } from '../../api/cart';
 import { productAPI } from '../../api/products';
 import { userAPI } from '../../api/users';
 import { distributorAPI } from '../../api/distributors';
+import { SkeletonListPage } from '../../components/common/Skeleton';
+import { useAuth } from '../../context/AuthContext';
 
 import type {
   Cart as ApiCart,
@@ -178,13 +179,14 @@ const CopyCodeButton: React.FC<{ code: string }> = ({ code }) => {
 /* ------------------------------------------------------------------ */
 
 const Orders: React.FC = () => {
+  const { user: authUser, isLoading: authLoading } = useAuth();
+
   const [carts, setCarts] = useState<DisplayCart[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
 
-  // 👈 NEW — toggle to show/hide empty carts
   const [hideEmpty, setHideEmpty] = useState(true);
 
   const [selectedCart, setSelectedCart] = useState<DisplayCart | null>(null);
@@ -415,8 +417,14 @@ const Orders: React.FC = () => {
   /* Effects                                                             */
   /* ------------------------------------------------------------------ */
   useEffect(() => {
+    if (authLoading) return;
+    if (!authUser) {
+      setLoading(false);
+      return;
+    }
     fetchCarts();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, authUser?.id]);
 
   useEffect(() => {
     if (showCreateModal) {
@@ -556,13 +564,11 @@ const Orders: React.FC = () => {
   /* Derived                                                             */
   /* ------------------------------------------------------------------ */
 
-  // Carts that actually have items
   const nonEmptyCarts = useMemo(
     () => carts.filter((c) => c.items.length > 0),
     [carts]
   );
 
-  // Apply hideEmpty + search + status filters
   const filteredCarts = useMemo(() => {
     const base = hideEmpty ? nonEmptyCarts : carts;
     return base.filter((c) => {
@@ -587,22 +593,17 @@ const Orders: React.FC = () => {
   const convertedCarts = carts.filter((c) => c.status === 'Converted').length;
   const abandonedCarts = carts.filter((c) => c.status === 'Abandoned').length;
 
-  // 👈 Stat totals only count carts with items (avoids empty-cart noise)
   const statsBase = hideEmpty ? nonEmptyCarts : carts;
   const totalValue = statsBase.reduce((s, c) => s + c.subtotal, 0);
   const totalBV = statsBase.reduce((s, c) => s + c.totalBV, 0);
   const totalPBV = statsBase.reduce((s, c) => s + c.totalPBV, 0);
 
   /* ------------------------------------------------------------------ */
-  /* Loading / error                                                     */
+  /* Loading — skeleton, not spinner                                     */
   /* ------------------------------------------------------------------ */
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
-      </div>
-    );
+  if (authLoading || loading) {
+    return <SkeletonListPage rows={8} cols={7} kpis toolbar />;
   }
 
   if (error) {
@@ -716,7 +717,6 @@ const Orders: React.FC = () => {
           />
         </div>
 
-        {/* 👈 NEW — toggle: hide empty carts */}
         <button
           type="button"
           onClick={() => setHideEmpty((v) => !v)}
@@ -944,7 +944,7 @@ const Orders: React.FC = () => {
         )}
       </div>
 
-      {/* ================= Cart Details Modal (unchanged) ================= */}
+      {/* Cart Details Modal */}
       {selectedCart && (
         <div
           className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
@@ -1277,7 +1277,7 @@ const Orders: React.FC = () => {
         </div>
       )}
 
-      {/* ================= Create Cart Modal (unchanged) ================= */}
+      {/* Create Cart Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">

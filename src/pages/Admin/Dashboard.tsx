@@ -8,14 +8,12 @@ import {
   Gift,
   ShoppingCart,
   Package,
-  Crown,
   Wallet,
   PiggyBank,
   Receipt,
   Building2,
   UserCircle2,
   RefreshCw,
-  Loader2,
   AlertCircle,
   TrendingUp,
   BarChart3,
@@ -30,6 +28,7 @@ import { bonusAPI } from '../../api/bonuses';
 import { awardAPI } from '../../api/awards';
 import { cartAPI } from '../../api/cart';
 import { useAuth } from '../../hooks/useAuth';
+import { SkeletonDashboard } from '../../components/common/Skeleton';
 
 import type {
   Distributor,
@@ -75,7 +74,7 @@ const fmtBV = (n: number): string =>
     maximumFractionDigits: 2,
   });
 
-/* 👇 SAME as Orders.tsx — PBV calc */
+/* Same as Orders.tsx — PBV calc */
 const calcPBV = (
   bv: number,
   bonusPercentage: number | null | undefined
@@ -176,7 +175,7 @@ const Dashboard: React.FC = () => {
   }, []);
 
   /* ================================================================ */
-  /* ✅ CONVERTED CARTS ONLY (MAUZO) — same as Orders.tsx             */
+  /* CONVERTED CARTS ONLY (MAUZO)                                     */
   /* ================================================================ */
   const convertedCarts = useMemo(
     () =>
@@ -187,13 +186,9 @@ const Dashboard: React.FC = () => {
   );
 
   /* ================================================================ */
-  /* PER-SELLER REVENUE — built EXACTLY like Orders.tsx seller map    */
-  /*                                                                  */
-  /* A "seller" comes from item.seller_id / seller_name / seller_rank */
-  /* PBV = calcPBV(bv × qty, cart.distributor_bonus_percentage)        */
+  /* PER-SELLER REVENUE                                               */
   /* ================================================================ */
   const sellerRevenue = useMemo(() => {
-    // sellerMap key: "id-<sellerId>" or "unassigned"
     type SellerAgg = {
       sellerId: number | null;
       sellerName: string;
@@ -250,7 +245,6 @@ const Dashboard: React.FC = () => {
       }
     }
 
-    // Build rows for every known distributor + any seller not in distributors list
     const distributorById = new Map<number, Distributor>();
     distributors.forEach((d) => distributorById.set(d.id, d));
 
@@ -258,7 +252,6 @@ const Dashboard: React.FC = () => {
       const dist =
         agg.sellerId != null ? distributorById.get(agg.sellerId) : undefined;
 
-      // Prefer distributor record fields; fall back to what item told us
       const name =
         dist?.full_name ||
         dist?.user?.full_name ||
@@ -288,7 +281,6 @@ const Dashboard: React.FC = () => {
       };
     });
 
-    // Also include distributors with zero sales (so nothing is hidden)
     for (const d of distributors) {
       const key = `id-${d.id}`;
       if (!sellerMap.has(key)) {
@@ -335,7 +327,7 @@ const Dashboard: React.FC = () => {
   }, [convertedCarts, distributors]);
 
   /* ================================================================ */
-  /* PER-SHOP REVENUE — only converted carts                          */
+  /* PER-SHOP REVENUE                                                 */
   /* ================================================================ */
   const shopRevenue = useMemo(() => {
     const cartCountByShop = new Map<number, number>();
@@ -470,14 +462,10 @@ const Dashboard: React.FC = () => {
   ]);
 
   /* ================================================================ */
-  /* LOADING                                                          */
+  /* LOADING — skeleton, not spinner                                  */
   /* ================================================================ */
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
-      </div>
-    );
+    return <SkeletonDashboard />;
   }
 
   /* ================================================================ */
@@ -638,9 +626,7 @@ const Dashboard: React.FC = () => {
         />
       </div>
 
-      {/* ============================================================ */}
-      {/* SELLER SALES — built like Orders.tsx (converted carts only)  */}
-      {/* ============================================================ */}
+      {/* ---------- SELLER SALES ---------- */}
       <div className="bg-white rounded-xl shadow-sm border border-amber-200/30 p-5">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
           <div>

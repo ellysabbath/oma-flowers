@@ -84,6 +84,7 @@ import Profile from './pages/distributor/Profile';
 // Contexts
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AdminProvider } from './context/AdminContext';
+import MyBonuses from './pages/distributor/MyBonuses';
 
 /* ------------------------------------------------------------------ */
 /* Scroll restoration                                                  */
@@ -299,6 +300,7 @@ const AppContent: React.FC = () => {
             <Route index element={<DistributorDashboard />} />
             <Route path="orders" element={<DistributorOrders />} />
             <Route path="downline" element={<DistributorDownline />} />
+            <Route path="/distributor/bonuses" element={<MyBonuses />} />
             <Route path="commissions" element={<DistributorCommissions />} />
             <Route path="settings" element={<DistributorSettings />} />
             <Route path="profile" element={<Profile />} />

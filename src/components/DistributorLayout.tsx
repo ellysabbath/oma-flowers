@@ -15,9 +15,12 @@ import {
   X,
   ChevronUp,
   Loader2,
+  Gift,
+  DollarSign,
+  TrendingUp,
 } from 'lucide-react';
 
-import { useAuth } from '../context/AuthContext'; 
+import { useAuth } from '../context/AuthContext';
 
 const DistributorLayout: React.FC = () => {
   const location = useLocation();
@@ -67,6 +70,7 @@ const DistributorLayout: React.FC = () => {
       displayName
     )}&background=f59e0b&color=fff&size=64`;
 
+  /* ---------- Navigation items ---------- */
   const navItems = [
     {
       path: '/distributor',
@@ -89,13 +93,27 @@ const DistributorLayout: React.FC = () => {
       icon: <Award size={18} />,
     },
     {
+      path: '/distributor/bonuses',
+      label: 'My Bonuses',
+      icon: <Gift size={18} />,
+      badge: 'New',
+    },
+    {
       path: '/distributor/settings',
       label: 'Settings',
       icon: <Settings size={18} />,
     },
   ];
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => {
+    if (path === '/distributor') {
+      return location.pathname === '/distributor';
+    }
+    return (
+      location.pathname === path ||
+      location.pathname.startsWith(`${path}/`)
+    );
+  };
 
   /* ---------- Scroll detection ---------- */
   useEffect(() => {
@@ -162,7 +180,6 @@ const DistributorLayout: React.FC = () => {
       navigate('/login');
     } catch (e) {
       console.error('Logout failed:', e);
-      // Fallback: force-clear and redirect
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('user');
@@ -267,6 +284,14 @@ const DistributorLayout: React.FC = () => {
                     </div>
 
                     <Link
+                      to="/distributor/bonuses"
+                      onClick={() => setIsProfileOpen(false)}
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50/80 text-sm text-gray-700"
+                    >
+                      <Gift size={16} className="text-amber-400" />
+                      My Bonuses
+                    </Link>
+                    <Link
                       to="/distributor/settings"
                       onClick={() => setIsProfileOpen(false)}
                       className="flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50/80 text-sm text-gray-700"
@@ -280,7 +305,7 @@ const DistributorLayout: React.FC = () => {
                       className="flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50/80 text-sm text-gray-700"
                     >
                       <Home size={16} className="text-amber-400" />
-                      my profile
+                      My Profile
                     </Link>
 
                     <div className="border-t border-amber-100/50 mt-1 pt-1">
@@ -310,7 +335,7 @@ const DistributorLayout: React.FC = () => {
         {/* ---------- Desktop sidebar ---------- */}
         <aside
           ref={sidebarRef}
-          className="hidden md:flex md:flex-col w-64 bg-white border-r border-amber-200/30 flex-shrink-0 sticky top-16 h-[calc(100vh-64px)]"
+          className="hidden md:flex md:flex-col w-64 bg-white border-r border-amber-200/30 flex-shrink-0 sticky top-16 h-[calc(100vh-64px)] relative"
         >
           {showScrollTop && (
             <button
@@ -326,8 +351,27 @@ const DistributorLayout: React.FC = () => {
             ref={scrollContainerRef}
             className="flex-1 overflow-y-auto py-4 px-3 scrollbar-thin scrollbar-thumb-amber-300/30 scrollbar-track-transparent hover:scrollbar-thumb-amber-400/40"
           >
+            {/* Quick stats card (optional mini-bonuses preview) */}
+            <div className="mb-4 p-3 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100/50 border border-amber-200/40">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="p-1.5 bg-amber-500 text-white rounded-lg">
+                  <Gift size={14} />
+                </div>
+                <p className="text-xs font-semibold text-amber-800">
+                  My Bonuses
+                </p>
+              </div>
+              <Link
+                to="/distributor/bonuses"
+                className="flex items-center justify-between text-xs text-amber-700 hover:text-amber-900 font-medium"
+              >
+                <span>View all bonuses</span>
+                <TrendingUp size={12} />
+              </Link>
+            </div>
+
             <nav className="space-y-1">
-              {navItems.map((item) => (
+              {navItems.map((item: any) => (
                 <Link
                   key={item.path}
                   to={item.path}
@@ -338,7 +382,12 @@ const DistributorLayout: React.FC = () => {
                   }`}
                 >
                   {item.icon}
-                  <span>{item.label}</span>
+                  <span className="flex-1">{item.label}</span>
+                  {item.badge && (
+                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-green-100 text-green-700 border border-green-200">
+                      {item.badge}
+                    </span>
+                  )}
                 </Link>
               ))}
 
@@ -414,7 +463,7 @@ const DistributorLayout: React.FC = () => {
             {/* Mobile navigation */}
             <div className="flex-1 overflow-y-auto py-4 px-3">
               <nav className="space-y-1">
-                {navItems.map((item) => (
+                {navItems.map((item: any) => (
                   <Link
                     key={item.path}
                     to={item.path}
@@ -426,7 +475,12 @@ const DistributorLayout: React.FC = () => {
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     {item.icon}
-                    <span>{item.label}</span>
+                    <span className="flex-1">{item.label}</span>
+                    {item.badge && (
+                      <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-green-100 text-green-700 border border-green-200">
+                        {item.badge}
+                      </span>
+                    )}
                   </Link>
                 ))}
 

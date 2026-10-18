@@ -19,14 +19,14 @@ export interface User {
   user_type: 'customer' | 'distributor' | 'admin';
   status: 'active' | 'inactive' | 'pending' | 'banned';
   email_verified: boolean;
-  email_verified_at?: string | null;   // 👈 new
+  email_verified_at?: string | null;
   created_at: string;
-  updated_at?: string;                 // 👈 new
-  last_login?: string | null;          // 👈 new
-  date_joined?: string;                // 👈 new
-  is_active?: boolean;                 // 👈 optional
-  is_staff?: boolean;                  // 👈 optional
-  is_superuser?: boolean;              // 👈 optional
+  updated_at?: string;
+  last_login?: string | null;
+  date_joined?: string;
+  is_active?: boolean;
+  is_staff?: boolean;
+  is_superuser?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -61,6 +61,7 @@ export interface Distributor {
   cgv: number | string;
   bonus_percentage: number | string;
   join_date: string;
+  is_active?: boolean;
   downline_count: number;
   active_downline_count: number;
   created_at: string;
@@ -86,15 +87,12 @@ export interface Shop {
   id: number;
   distributor: number | null;
   distributor_name: string | null;
-
   name: string;
   location: string;
   region: string;
   country: string;
   phone: string;
   email: string | null;
-
-  // 🔒 Auto-computed by the backend — read-only from the API
   performance_level:
     | 'Seed'
     | 'Bloom'
@@ -104,16 +102,13 @@ export interface Shop {
     | 'Crown'
     | 'Gold Crown';
   performance_display: string;
-  bonus_percentage: number | string;   // auto
-  owner_bv: number | string;           // auto (Σ product BV of owner)
-  customers: number;                   // auto (distinct cart users + guests)
-
-  // ✏️ Editable by admin
+  bonus_percentage: number | string;
+  owner_bv: number | string;
+  customers: number;
   monthly_revenue: number | string;
   rating: number | string;
   status: 'active' | 'inactive' | 'pending';
   established_date: string;
-
   created_at: string;
   updated_at: string;
 }
@@ -174,11 +169,9 @@ export interface Cart {
   subtotal: number | string;
   total_bv: number;
   total_items: number;
-
   distributor_name?: string | null;
   distributor_rank?: string | null;
   distributor_bonus_percentage?: number | string | null;
-
   created_at: string;
   updated_at: string;
 }
@@ -239,11 +232,9 @@ export interface Product {
   category_code: string;
   category_type?: 'Classic' | 'Luxury';
   category_class_type?: 'A' | 'B' | 'C' | 'D';
-
   seller?: number | null;
   seller_name?: string | null;
   seller_rank?: string | null;
-
   sku: string;
   name: string;
   description: string;
@@ -300,72 +291,78 @@ export interface Order {
 }
 
 /* ------------------------------------------------------------------ */
-/* Commission — ONLY ONE declaration                                  */
+/* Commission                                                         */
 /* ------------------------------------------------------------------ */
 
 export interface Commission {
   id: number;
-
   distributor: number;
   distributor_name: string;
   distributor_rank?: string;
   distributor_level?: number;
-
   order: number | null;
   order_number: string | null;
-
   type: 'personal' | 'differential';
-
   source_distributor: number | null;
   source_distributor_name: string | null;
-
-  // BV the commission was calculated from
   pbv: string;
-
-  // Money & % — DRF sends Decimals as strings
   percentage: string;
   amount: string;
-
   status: 'paid' | 'pending' | 'processing';
   payment_date: string | null;
-
   created_at: string;
   updated_at: string;
 }
 
 /* ------------------------------------------------------------------ */
-/* Bonus                                                              */
+/* Bonus — FULLY typed                                                */
 /* ------------------------------------------------------------------ */
+
+export type BonusType =
+  | 'consistency'
+  | 'referral'
+  | 'dynamic'
+  | 'training'
+  | 'event'
+  | 'booking'
+  | 'design'
+  | 'festival'
+  | 'loyalty';
+
+export type BonusStatus = 'paid' | 'pending' | 'processing';
 
 export interface Bonus {
   id: number;
   distributor: number;
   distributor_name: string;
   distributor_rank?: string;
-
   name: string;
-  type:
-    | 'consistency'
-    | 'referral'
-    | 'dynamic'
-    | 'training'
-    | 'event'
-    | 'booking'
-    | 'design'
-    | 'festival'
-    | 'loyalty';
-
+  type: BonusType;
   amount: string;
   description: string;
   month: string;
   year: number;
-
-  status: 'paid' | 'pending' | 'processing';
+  status: BonusStatus;
   payment_date: string | null;
-
   created_at: string;
   updated_at?: string;
 }
+
+/** Payload for creating a bonus. */
+export interface BonusCreatePayload {
+  distributor: number;
+  name: string;
+  type: BonusType;
+  amount: number;
+  description?: string;
+  month: string;
+  year: number;
+  status?: BonusStatus;
+  payment_date?: string | null;
+}
+
+/** Payload for updating a bonus (partial). */
+export type BonusUpdatePayload = Partial<BonusCreatePayload>;
 
 /* ------------------------------------------------------------------ */
 /* Award                                                              */
@@ -376,7 +373,6 @@ export interface Award {
   distributor: number;
   distributor_name: string;
   distributor_rank?: string;
-
   name: string;
   category: 'legacy_circle' | 'legacy' | 'annual' | 'special';
   prize: string;
@@ -384,7 +380,6 @@ export interface Award {
   year: number;
   status: 'active' | 'past' | 'upcoming';
   given_date: string | null;
-
   created_at: string;
   updated_at?: string;
 }

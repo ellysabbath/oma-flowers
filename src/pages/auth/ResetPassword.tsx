@@ -138,7 +138,7 @@ const ResetPassword: React.FC = () => {
                 Sending...
               </span>
             ) : (
-              'Send Reset Link'
+              'Send Reset Codes'
             )}
           </button>
 

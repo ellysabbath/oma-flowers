@@ -16,12 +16,16 @@ import {
   AlertCircle,
   X,
   Check,
+  RefreshCw,
 } from 'lucide-react';
-import { distributorAPI } from '../../api/distributors';
-import { userAPI } from '../../api/users';
+import {
+  distributorAPI,
+  pickDisplayName,
+  type HierarchyNode,
+  type MyHierarchyResponse,
+} from '../../api/distributors';
 import { useAuth } from '../../context/AuthContext';
 import { SkeletonUsersPage } from '../../components/common/Skeleton';
-import type { Distributor, User as UserType } from '../../types';
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -39,25 +43,24 @@ interface DownlineMember {
   joinDate: string;
   status: 'Active' | 'Inactive' | 'Pending';
   level: number;
-  distributor: Distributor;
+  isActive: boolean;
+  raw: HierarchyNode;
+}
+
+interface AvailableDistributor {
+  id: number;
+  name: string;
+  email: string;
+  rank: string;
+  pbv: number;
+  cgv: number;
+  currentUplineId: number | null;
+  currentUplineName: string | null;
 }
 
 /* ------------------------------------------------------------------ */
 /* Constants                                                           */
 /* ------------------------------------------------------------------ */
-
-const RANK_OPTIONS = [
-  'Associate',
-  'Builder',
-  'Leader',
-  'Senior Leader',
-  'Executive',
-  'Manager',
-  'Senior Manager',
-  'Director',
-  'Crown Director',
-  'Royal Crown Director',
-] as const;
 
 const rankColors: Record<string, string> = {
   'Royal Crown Director': 'bg-amber-100 text-amber-700',
@@ -82,11 +85,10 @@ const statusColors: Record<string, string> = {
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-const num = (v: number | string | undefined | null): number =>
-  v === undefined || v === null ? 0 : Number(v);
-
-const capitalize = (s?: string) =>
-  s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : '';
+const num = (v: any): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
 
 const formatDate = (iso?: string) => {
   if (!iso) return '—';
@@ -101,66 +103,62 @@ const formatDate = (iso?: string) => {
   }
 };
 
-const getDistributorUserId = (d: any): number | null => {
-  if (typeof d?.user === 'object' && d.user !== null) return d.user.id;
-  if (typeof d?.user === 'number') return d.user;
-  if (typeof d?.user_id === 'number') return d.user_id;
-  return null;
+const resolveStatus = (node: HierarchyNode): DownlineMember['status'] => {
+  if (node.is_active === false) return 'Inactive';
+  const raw = node.user?.status;
+  if (raw === 'active') return 'Active';
+  if (raw === 'inactive' || raw === 'banned') return 'Inactive';
+  if (raw === 'pending') return 'Pending';
+  return 'Active';
 };
 
+/**
+ * Recursively flatten the hierarchy tree.
+ */
 const flattenHierarchy = (
-  nodes: any[],
+  nodes: HierarchyNode[],
   level: number,
   out: DownlineMember[] = []
 ): DownlineMember[] => {
   if (!Array.isArray(nodes)) return out;
 
   for (const node of nodes) {
-    const user = node.user || {};
+    const user = node.user;
+    const displayName = pickDisplayName(node);
+    const status = resolveStatus(node);
+
     out.push({
       id: node.id,
-      name: user.full_name || user.username || node.full_name || 'Unknown',
-      email: user.email || '',
-      phone: user.phone || user.mobile_number || '',
+      name: displayName !== 'Distributor' ? displayName : `#${node.id}`,
+      email: user?.email ?? '',
+      phone: user?.phone ?? user?.mobile_number ?? '',
       rank: node.rank || 'Associate',
       pbv: num(node.pbv),
       cgv: num(node.cgv),
       bonusPercentage: num(node.bonus_percentage),
       joinDate: node.join_date || node.created_at || '',
-      status: capitalize(user.status) as DownlineMember['status'],
+      status,
       level,
-      distributor: node as Distributor,
+      isActive: status === 'Active',
+      raw: node,
     });
 
     if (Array.isArray(node.downline) && node.downline.length > 0) {
       flattenHierarchy(node.downline, level + 1, out);
     }
   }
+
   return out;
 };
 
-const extractChildren = (response: any): any[] => {
-  if (!response) return [];
-  if (Array.isArray(response)) return response;
-  if (Array.isArray(response.downline)) return response.downline;
-  return [];
-};
-
-const normalizeList = <T,>(data: any): T[] => {
-  if (Array.isArray(data)) return data;
-  if (data && Array.isArray(data.results)) return data.results;
-  return [];
-};
-
 /* ------------------------------------------------------------------ */
-/* Invite Members Modal                                                */
+/* Add Members Modal — shows EXISTING distributors not yet in my team  */
 /* ------------------------------------------------------------------ */
 
 interface InviteModalProps {
   isOpen: boolean;
   onClose: () => void;
   myDistributorId: number;
-  existingDownlineUserIds: number[];
   onDone: () => void;
 }
 
@@ -168,14 +166,12 @@ const InviteMembersModal: React.FC<InviteModalProps> = ({
   isOpen,
   onClose,
   myDistributorId,
-  existingDownlineUserIds,
   onDone,
 }) => {
-  const [users, setUsers] = useState<UserType[]>([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [candidates, setCandidates] = useState<AvailableDistributor[]>([]);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [defaultRank, setDefaultRank] = useState<string>('Associate');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -185,44 +181,55 @@ const InviteMembersModal: React.FC<InviteModalProps> = ({
 
     const load = async () => {
       try {
-        setLoadingUsers(true);
+        setLoading(true);
         setError(null);
 
-        const [usersRaw, distributorsRaw] = await Promise.all([
-          typeof (userAPI as any).getNonDistributors === 'function'
-            ? (userAPI as any).getNonDistributors()
-            : userAPI.getCustomers(),
+        const [allDistributors, hierarchy] = await Promise.all([
           distributorAPI.getAll(),
+          distributorAPI.getMyHierarchy(),
         ]);
 
-        const candidatesList: UserType[] = normalizeList<UserType>(usersRaw);
-        const distributorsList: any[] = normalizeList<any>(distributorsRaw);
+        // Collect IDs already in my subtree (direct + indirect)
+        const myTeamIds = new Set<number>();
+        const collect = (nodes: HierarchyNode[]) => {
+          for (const n of nodes) {
+            myTeamIds.add(n.id);
+            if (Array.isArray(n.downline)) collect(n.downline);
+          }
+        };
+        collect(hierarchy.downline || []);
+        myTeamIds.add(myDistributorId);
 
-        const alreadyDistributorUserIds = new Set<number>();
-        for (const d of distributorsList) {
-          const uid = getDistributorUserId(d);
-          if (uid !== null) alreadyDistributorUserIds.add(uid);
-        }
+        const list: AvailableDistributor[] = (allDistributors as any[])
+          .filter((d) => !myTeamIds.has(d.id))
+          .map((d: any) => ({
+            id: d.id,
+            name:
+              d.full_name ||
+              d.user?.full_name ||
+              d.user?.username ||
+              `#${d.id}`,
+            email: d.user?.email || '',
+            rank: d.rank || 'Associate',
+            pbv: num(d.pbv),
+            cgv: num(d.cgv),
+            currentUplineId: d.upline?.id ?? d.upline_id ?? null,
+            currentUplineName:
+              d.upline?.name ?? d.upline?.full_name ?? null,
+          }));
 
-        const filtered = candidatesList.filter((u) => {
-          if (alreadyDistributorUserIds.has(u.id)) return false;
-          if (u.user_type === 'distributor') return false;
-          if (u.user_type === 'admin') return false;
-          return true;
-        });
-
-        if (!cancelled) setUsers(filtered);
+        if (!cancelled) setCandidates(list);
       } catch (err: any) {
-        console.error('Failed to load users:', err);
+        console.error('Failed to load available distributors:', err);
         if (!cancelled) {
           setError(
             err?.response?.data?.detail ||
               err?.message ||
-              'Failed to load users.'
+              'Failed to load distributors.'
           );
         }
       } finally {
-        if (!cancelled) setLoadingUsers(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
@@ -230,30 +237,25 @@ const InviteMembersModal: React.FC<InviteModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [isOpen]);
+  }, [isOpen, myDistributorId]);
 
   useEffect(() => {
     if (isOpen) {
       setSelectedIds([]);
       setSearch('');
-      setDefaultRank('Associate');
       setError(null);
     }
   }, [isOpen]);
 
-  const candidates = useMemo(() => {
-    const taken = new Set(existingDownlineUserIds);
+  const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-
-    return users
-      .filter((u) => !taken.has(u.id))
-      .filter((u) => {
-        if (!q) return true;
-        const name = (u.full_name || u.username || '').toLowerCase();
-        const email = (u.email || '').toLowerCase();
-        return name.includes(q) || email.includes(q);
-      });
-  }, [users, existingDownlineUserIds, search]);
+    if (!q) return candidates;
+    return candidates.filter(
+      (d) =>
+        d.name.toLowerCase().includes(q) ||
+        d.email.toLowerCase().includes(q)
+    );
+  }, [candidates, search]);
 
   const toggle = (id: number) => {
     setSelectedIds((prev) =>
@@ -268,12 +270,11 @@ const InviteMembersModal: React.FC<InviteModalProps> = ({
     setError(null);
 
     try {
-      for (const userId of selectedIds) {
-        await distributorAPI.create({
-          user_id: userId,
+      // Attach each selected distributor under me (PATCH upline_id)
+      for (const distId of selectedIds) {
+        await distributorAPI.update(distId, {
           upline_id: myDistributorId,
-          rank: defaultRank,
-        });
+        } as any);
       }
 
       onDone();
@@ -305,9 +306,11 @@ const InviteMembersModal: React.FC<InviteModalProps> = ({
       >
         <div className="p-6 border-b border-amber-100/50 flex items-center justify-between sticky top-0 bg-white z-10">
           <div>
-            <h3 className="text-xl font-bold text-gray-800">Invite Members</h3>
+            <h3 className="text-xl font-bold text-gray-800">
+              Add to My Team
+            </h3>
             <p className="text-sm text-gray-500 mt-0.5">
-              Add registered users to your downline
+              Select existing distributors to add under you
             </p>
           </div>
           <button
@@ -326,26 +329,6 @@ const InviteMembersModal: React.FC<InviteModalProps> = ({
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Starting Rank
-            </label>
-            <select
-              value={defaultRank}
-              onChange={(e) => setDefaultRank(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
-            >
-              {RANK_OPTIONS.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-400 mt-1">
-              New members will join with this rank.
-            </p>
-          </div>
-
           <div className="relative">
             <Search
               className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
@@ -353,7 +336,7 @@ const InviteMembersModal: React.FC<InviteModalProps> = ({
             />
             <input
               type="text"
-              placeholder="Search users by name or email..."
+              placeholder="Search distributors by name or email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
@@ -363,51 +346,51 @@ const InviteMembersModal: React.FC<InviteModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="block text-sm font-medium text-gray-700">
-                Select Users ({selectedIds.length} selected)
+                Select Distributors ({selectedIds.length} selected)
               </label>
-              {candidates.length > 0 && (
+              {filtered.length > 0 && (
                 <button
                   type="button"
                   onClick={() =>
                     setSelectedIds(
-                      selectedIds.length === candidates.length
+                      selectedIds.length === filtered.length
                         ? []
-                        : candidates.map((c) => c.id)
+                        : filtered.map((c) => c.id)
                     )
                   }
                   className="text-xs text-amber-600 hover:text-amber-700"
                 >
-                  {selectedIds.length === candidates.length
+                  {selectedIds.length === filtered.length
                     ? 'Clear all'
                     : 'Select all'}
                 </button>
               )}
             </div>
 
-            {loadingUsers ? (
+            {loading ? (
               <div className="flex items-center justify-center py-8 text-amber-600 gap-2">
                 <Loader2 size={18} className="animate-spin" />
-                <span className="text-sm">Loading users…</span>
+                <span className="text-sm">Loading distributors…</span>
               </div>
-            ) : candidates.length === 0 ? (
+            ) : filtered.length === 0 ? (
               <div className="p-6 text-center border-2 border-dashed border-gray-300 rounded-lg">
                 <Users className="mx-auto text-gray-300" size={32} />
                 <p className="text-sm text-gray-500 mt-2">
                   {search
-                    ? 'No users match your search.'
-                    : 'No available users to invite.'}
+                    ? 'No distributors match your search.'
+                    : 'No available distributors to add.'}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
-                  Users must register first, and can only join one downline.
+                  All distributors are already in your team.
                 </p>
               </div>
             ) : (
               <div className="max-h-72 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
-                {candidates.map((u) => {
-                  const selected = selectedIds.includes(u.id);
+                {filtered.map((d) => {
+                  const selected = selectedIds.includes(d.id);
                   return (
                     <label
-                      key={u.id}
+                      key={d.id}
                       className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
                         selected ? 'bg-amber-50/60' : 'hover:bg-gray-50'
                       }`}
@@ -415,21 +398,29 @@ const InviteMembersModal: React.FC<InviteModalProps> = ({
                       <input
                         type="checkbox"
                         checked={selected}
-                        onChange={() => toggle(u.id)}
+                        onChange={() => toggle(d.id)}
                         className="w-4 h-4 accent-amber-500 cursor-pointer"
                       />
                       <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-xs shrink-0">
-                        {(u.full_name || u.username || 'U')
-                          .charAt(0)
+                        {d.name
+                          .split(' ')
+                          .map((n) => n[0])
+                          .join('')
+                          .slice(0, 2)
                           .toUpperCase()}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gray-800 truncate">
-                          {u.full_name || u.username}
+                          {d.name}
                         </p>
                         <p className="text-xs text-gray-500 truncate">
-                          {u.email}
+                          {d.email} • {d.rank}
                         </p>
+                        {d.currentUplineName && (
+                          <p className="text-[11px] text-yellow-700 mt-0.5">
+                            Currently under: {d.currentUplineName}
+                          </p>
+                        )}
                       </div>
                       {selected && (
                         <Check size={16} className="text-amber-600" />
@@ -598,9 +589,10 @@ const DistributorDownline: React.FC = () => {
   const [members, setMembers] = useState<DownlineMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [noProfile, setNoProfile] = useState(false);
+
   const [myDistributorId, setMyDistributorId] = useState<number | null>(null);
   const [distributorName, setDistributorName] = useState<string>('');
-
   const [myPBV, setMyPBV] = useState<number>(0);
   const [myCGV, setMyCGV] = useState<number>(0);
 
@@ -616,102 +608,42 @@ const DistributorDownline: React.FC = () => {
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
 
-  /* ---------- Load distributor + downline ---------- */
+  /* ================================================================ */
+  /* Load — /distributors/me/hierarchy/                                */
+  /* ================================================================ */
+
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
+      setNoProfile(false);
 
-      const myUserId = (user as any)?.id;
-      if (!myUserId) return;
-
-      let hierarchyResponse: any = null;
-      let myDistId: number | null = null;
-      let myName = 'My';
-      let meObj: any = null;
-
-      const hasMeEndpoint =
-        typeof (distributorAPI as any).getMyHierarchy === 'function';
-
-      if (hasMeEndpoint) {
-        try {
-          const meResult = await (distributorAPI as any).getMyHierarchy();
-          if (meResult?.distributor) {
-            meObj = meResult.distributor;
-            myDistId = meObj.id;
-            myName = meObj.name || meObj.full_name || 'My';
-            hierarchyResponse = meResult.downline || [];
-          } else {
-            hierarchyResponse = extractChildren(meResult);
-          }
-        } catch (err: any) {
-          if (err?.response?.status === 404) {
-            setDistributorName('');
-            setMyDistributorId(null);
-            setMembers([]);
-            setMyPBV(0);
-            setMyCGV(0);
-            setError(
-              'You are not registered as a distributor. Please contact support.'
-            );
-            return;
-          }
-          console.warn('me/hierarchy/ failed, falling back…', err);
-        }
-      }
-
-      if (myDistId === null) {
-        const all = await distributorAPI.getAll();
-
-        if (!Array.isArray(all) || all.length === 0) {
-          setError(
-            'Couldn’t load distributors from the server. Please try again.'
-          );
+      let hierarchy: MyHierarchyResponse;
+      try {
+        hierarchy = await distributorAPI.getMyHierarchy();
+      } catch (e: any) {
+        if (e?.response?.status === 404) {
+          setNoProfile(true);
+          setLoading(false);
           return;
         }
-
-        const mine =
-          all.find(
-            (d: any) =>
-              Number(getDistributorUserId(d)) === Number(myUserId)
-          ) || null;
-
-        if (!mine) {
-          setDistributorName('');
-          setMyDistributorId(null);
-          setMembers([]);
-          setMyPBV(0);
-          setMyCGV(0);
-          setError(
-            `You are logged in as ${
-              (user as any)?.email || 'unknown'
-            }, but no matching distributor was found. Please contact support.`
-          );
-          return;
-        }
-
-        meObj = mine;
-        myDistId = mine.id;
-        myName =
-          (mine as any).full_name ||
-          (mine as any).user?.full_name ||
-          (mine as any).user?.username ||
-          'My';
-
-        hierarchyResponse = await distributorAPI.getHierarchy(mine.id);
+        throw e;
       }
 
-      const children = extractChildren(hierarchyResponse);
-      const list = flattenHierarchy(children, 1);
+      const me = hierarchy.distributor;
+      if (!me?.id) {
+        setNoProfile(true);
+        setLoading(false);
+        return;
+      }
 
-      setMyDistributorId(myDistId);
-      setDistributorName(myName);
-      setMembers(list);
+      setMyDistributorId(me.id);
+      setDistributorName(pickDisplayName(me));
+      setMyPBV(num(me.pbv));
+      setMyCGV(num(me.cgv));
 
-      setMyPBV(num(meObj?.pbv));
-      setMyCGV(num(meObj?.cgv));
-
-      setError(null);
+      const flattened = flattenHierarchy(hierarchy.downline || [], 1);
+      setMembers(flattened);
     } catch (err: any) {
       console.error('Failed to load downline:', err);
       setError(
@@ -727,6 +659,7 @@ const DistributorDownline: React.FC = () => {
 
   useEffect(() => {
     setError(null);
+    setNoProfile(false);
     setMembers([]);
     setMyDistributorId(null);
     setDistributorName('');
@@ -748,11 +681,7 @@ const DistributorDownline: React.FC = () => {
     setRemoving(true);
     setRemoveError(null);
     try {
-      const api: any = distributorAPI;
-      if (typeof api.removeDownline !== 'function') {
-        throw new Error('removeDownline API method not implemented yet');
-      }
-      await api.removeDownline(removeTarget.distributor.id, action);
+      await distributorAPI.removeDownline(removeTarget.id, action);
       setRemoveTarget(null);
       await loadData();
     } catch (err: any) {
@@ -796,24 +725,40 @@ const DistributorDownline: React.FC = () => {
     [members]
   );
   const totalDownline = members.length;
-  const activeDownline = members.filter((m) => m.status === 'Active').length;
+  const activeDownline = members.filter((m) => m.isActive).length;
 
   const teamPBV = useMemo(
     () => members.reduce((sum, m) => sum + m.pbv, 0),
     [members]
   );
 
-  const existingDownlineUserIds = useMemo(
-    () =>
-      members
-        .map((m) => getDistributorUserId(m.distributor))
-        .filter((x): x is number => x !== null),
-    [members]
-  );
-
-  /* ---------- Loading — skeleton, not spinner ---------- */
+  /* ---------- Loading ---------- */
   if (authLoading || loading) {
     return <SkeletonUsersPage rows={8} />;
+  }
+
+  /* ---------- No profile ---------- */
+  if (noProfile) {
+    return (
+      <div className="p-6">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-amber-700 max-w-xl">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={18} />
+            <p className="font-medium">No distributor profile linked</p>
+          </div>
+          <p className="text-sm mt-1">
+            Your account is not linked to a distributor record, so your
+            downline can't be shown. Please contact support.
+          </p>
+          <button
+            onClick={loadData}
+            className="mt-3 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-2"
+          >
+            <RefreshCw size={16} /> Retry
+          </button>
+        </div>
+      </div>
+    );
   }
 
   /* ---------- Error ---------- */
@@ -823,15 +768,23 @@ const DistributorDownline: React.FC = () => {
         <div className="text-center max-w-md">
           <AlertCircle className="text-red-500 mx-auto mb-3" size={48} />
           <h2 className="text-xl font-bold text-gray-800">
-            Couldn’t load your downline
+            Couldn't load your downline
           </h2>
           <p className="text-gray-500 mt-2 text-sm">{error}</p>
-          <Link
-            to="/distributor"
-            className="inline-block mt-6 px-6 py-3 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
-          >
-            Back to Dashboard
-          </Link>
+          <div className="flex gap-3 justify-center mt-6">
+            <button
+              onClick={loadData}
+              className="px-6 py-3 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-2"
+            >
+              <RefreshCw size={16} /> Retry
+            </button>
+            <Link
+              to="/distributor"
+              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Back to Dashboard
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -851,14 +804,24 @@ const DistributorDownline: React.FC = () => {
                 : 'Manage and monitor your team members'}
             </p>
           </div>
-          <button
-            onClick={() => setInviteOpen(true)}
-            disabled={!myDistributorId}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-lg hover:from-amber-600 hover:to-amber-700 transition-all duration-300 shadow-md hover:shadow-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <UserPlus size={16} />
-            Invite Members
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={loadData}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+              title="Refresh"
+            >
+              <RefreshCw size={16} />
+              Refresh
+            </button>
+            <button
+              onClick={() => setInviteOpen(true)}
+              disabled={!myDistributorId}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-lg hover:from-amber-600 hover:to-amber-700 transition-all duration-300 shadow-md hover:shadow-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <UserPlus size={16} />
+              Add Members
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -987,7 +950,8 @@ const DistributorDownline: React.FC = () => {
                 No downline members yet
               </h3>
               <p className="mt-1 text-sm text-gray-400">
-                Click "Invite Members" to add registered users to your team.
+                Click "Add Members" to attach existing distributors to your
+                team.
               </p>
             </div>
           ) : (
@@ -1221,13 +1185,12 @@ const DistributorDownline: React.FC = () => {
           </div>
         )}
 
-        {/* Invite Members Modal */}
+        {/* Add Members Modal */}
         {myDistributorId && (
           <InviteMembersModal
             isOpen={inviteOpen}
             onClose={() => setInviteOpen(false)}
             myDistributorId={myDistributorId}
-            existingDownlineUserIds={existingDownlineUserIds}
             onDone={loadData}
           />
         )}

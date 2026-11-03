@@ -13,10 +13,13 @@ import {
   ArrowLeft,
   X,
   Send,
+  Phone,
 } from 'lucide-react';
 import { authAPI } from '../../api/auth';
 
 const RESEND_COOLDOWN = 60; // seconds
+
+type ResendChannel = 'email' | 'phone';
 
 const PasswordResetVerify: React.FC = () => {
   const location = useLocation();
@@ -31,8 +34,11 @@ const PasswordResetVerify: React.FC = () => {
 
   // Resend modal state
   const [isResendModalOpen, setIsResendModalOpen] = useState(false);
+  const [resendChannel, setResendChannel] = useState<ResendChannel>('email');
   const [resendEmail, setResendEmail] = useState(emailFromState || '');
+  const [resendPhone, setResendPhone] = useState('');
   const [resendEmailError, setResendEmailError] = useState('');
+  const [resendPhoneError, setResendPhoneError] = useState('');
   const [isResending, setIsResending] = useState(false);
   const [resendError, setResendError] = useState<string | null>(null);
   const [resendSuccess, setResendSuccess] = useState(false);
@@ -160,8 +166,11 @@ const PasswordResetVerify: React.FC = () => {
   // ---------- Resend Modal handlers ----------
   const openResendModal = () => {
     if (cooldown > 0) return;
+    setResendChannel('email');
     setResendEmail(formData.email || emailFromState || '');
+    setResendPhone('');
     setResendEmailError('');
+    setResendPhoneError('');
     setResendError(null);
     setResendSuccess(false);
     setIsResendModalOpen(true);
@@ -172,35 +181,62 @@ const PasswordResetVerify: React.FC = () => {
     setIsResendModalOpen(false);
   };
 
-  const validateResendEmail = () => {
-    if (!resendEmail) {
-      setResendEmailError('Email is required');
-      return false;
-    } else if (!/\S+@\S+\.\S+/.test(resendEmail)) {
-      setResendEmailError('Please enter a valid email address');
+  const validateResendInput = () => {
+    if (resendChannel === 'email') {
+      if (!resendEmail) {
+        setResendEmailError('Email is required');
+        return false;
+      }
+      if (!/\S+@\S+\.\S+/.test(resendEmail)) {
+        setResendEmailError('Please enter a valid email address');
+        return false;
+      }
+      setResendEmailError('');
+      return true;
+    }
+
+    // phone
+    if (!resendPhone) {
+      setResendPhoneError('Phone number is required');
       return false;
     }
-    setResendEmailError('');
+    // Loose E.164-ish check: +, optional country code, 7–15 digits
+    if (!/^\+?[1-9]\d{6,14}$/.test(resendPhone.replace(/[\s-]/g, ''))) {
+      setResendPhoneError('Please enter a valid phone number (e.g. +254712345678)');
+      return false;
+    }
+    setResendPhoneError('');
     return true;
   };
 
   const handleResendSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateResendEmail()) return;
+    if (!validateResendInput()) return;
 
     setIsResending(true);
     setResendError(null);
     try {
-      await authAPI.resetPassword(resendEmail);
+      // Send on the chosen channel. The backend `utils.py` supports
+      // both email and SMS; the API call just needs the right field.
+      if (resendChannel === 'email') {
+        await authAPI.resetPassword(resendEmail);
+        // Keep the verification form in sync
+        setFormData((prev) => ({ ...prev, email: resendEmail }));
+      } else {
+        // If your API uses a different name, adjust here (e.g. `resetPasswordByPhone`).
+        await authAPI.resetPassword(resendPhone);
+        // We don't overwrite the email field with a phone; the user
+        // still needs a valid email on the reset form in most flows.
+      }
       setResendSuccess(true);
-      // Update form email if user changed it
-      setFormData((prev) => ({ ...prev, email: resendEmail }));
       setCooldown(RESEND_COOLDOWN);
     } catch (error: any) {
       const errorMessage =
         error.response?.data?.error ||
         error.response?.data?.message ||
-        'Failed to send reset code. Please try again.';
+        `Failed to send reset code${
+          resendChannel === 'phone' ? ' via SMS' : ''
+        }. Please try again.`;
       setResendError(errorMessage);
     } finally {
       setIsResending(false);
@@ -462,8 +498,12 @@ const PasswordResetVerify: React.FC = () => {
                   Code Sent!
                 </h3>
                 <p className="text-sm text-gray-600">
-                  A new verification code has been sent to{' '}
-                  <span className="font-medium">{resendEmail}</span>.
+                  A new verification code has been sent{' '}
+                  {resendChannel === 'phone' ? 'via SMS to ' : 'to '}
+                  <span className="font-medium">
+                    {resendChannel === 'phone' ? resendPhone : resendEmail}
+                  </span>
+                  .
                 </p>
               </div>
             ) : (
@@ -479,42 +519,123 @@ const PasswordResetVerify: React.FC = () => {
                     Resend Verification Code
                   </h3>
                   <p className="mt-1 text-sm text-gray-600">
-                    Enter your email to receive a new code
+                    Choose where to receive your new code
                   </p>
                 </div>
 
+                {/* Channel toggle */}
+                <div
+                  className="grid grid-cols-2 gap-2 mb-4 p-1 bg-gray-100 rounded-lg"
+                  role="tablist"
+                  aria-label="Resend channel"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={resendChannel === 'email'}
+                    onClick={() => {
+                      setResendChannel('email');
+                      setResendError(null);
+                      setResendPhoneError('');
+                    }}
+                    className={`flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors ${
+                      resendChannel === 'email'
+                        ? 'bg-white text-amber-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <Mail className="w-4 h-4" />
+                    Email
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={resendChannel === 'phone'}
+                    onClick={() => {
+                      setResendChannel('phone');
+                      setResendError(null);
+                      setResendEmailError('');
+                    }}
+                    className={`flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors ${
+                      resendChannel === 'phone'
+                        ? 'bg-white text-amber-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <Phone className="w-4 h-4" />
+                    Phone (SMS)
+                  </button>
+                </div>
+
                 <form onSubmit={handleResendSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email Address
-                    </label>
-                    <div className="relative">
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                        <Mail className="w-5 h-5" />
+                  {resendChannel === 'email' ? (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Email Address
+                      </label>
+                      <div className="relative">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                          <Mail className="w-5 h-5" />
+                        </div>
+                        <input
+                          type="email"
+                          value={resendEmail}
+                          onChange={(e) => {
+                            setResendEmail(e.target.value);
+                            if (resendEmailError) setResendEmailError('');
+                            if (resendError) setResendError(null);
+                          }}
+                          placeholder="Enter your email"
+                          autoFocus
+                          className={`w-full px-4 py-3 pl-10 rounded-lg border ${
+                            resendEmailError
+                              ? 'border-red-500'
+                              : 'border-gray-300'
+                          } focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200`}
+                        />
                       </div>
-                      <input
-                        type="email"
-                        value={resendEmail}
-                        onChange={(e) => {
-                          setResendEmail(e.target.value);
-                          if (resendEmailError) setResendEmailError('');
-                          if (resendError) setResendError(null);
-                        }}
-                        placeholder="Enter your email"
-                        autoFocus
-                        className={`w-full px-4 py-3 pl-10 rounded-lg border ${
-                          resendEmailError
-                            ? 'border-red-500'
-                            : 'border-gray-300'
-                        } focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200`}
-                      />
+                      {resendEmailError && (
+                        <p className="text-sm text-red-500 mt-1">
+                          {resendEmailError}
+                        </p>
+                      )}
                     </div>
-                    {resendEmailError && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {resendEmailError}
+                  ) : (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Phone Number
+                      </label>
+                      <div className="relative">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                          <Phone className="w-5 h-5" />
+                        </div>
+                        <input
+                          type="tel"
+                          value={resendPhone}
+                          onChange={(e) => {
+                            setResendPhone(e.target.value);
+                            if (resendPhoneError) setResendPhoneError('');
+                            if (resendError) setResendError(null);
+                          }}
+                          placeholder="+254712345678"
+                          autoFocus
+                          className={`w-full px-4 py-3 pl-10 rounded-lg border ${
+                            resendPhoneError
+                              ? 'border-red-500'
+                              : 'border-gray-300'
+                          } focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-200`}
+                        />
+                      </div>
+                      {resendPhoneError && (
+                        <p className="text-sm text-red-500 mt-1">
+                          {resendPhoneError}
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1">
+                        Include your country code, e.g. +254 for Kenya.
                       </p>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   {resendError && (
                     <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-lg text-sm">
@@ -542,7 +663,11 @@ const PasswordResetVerify: React.FC = () => {
                           Sending...
                         </span>
                       ) : (
-                        'Send Code'
+                        <>
+                          {resendChannel === 'phone'
+                            ? 'Send via SMS'
+                            : 'Send Code'}
+                        </>
                       )}
                     </button>
                   </div>

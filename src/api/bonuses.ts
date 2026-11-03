@@ -5,7 +5,7 @@ import type {
   BonusCreatePayload,
   BonusUpdatePayload,
   BonusStatus,
-  PaginatedResponse,
+ 
 } from '../types';
 
 /**

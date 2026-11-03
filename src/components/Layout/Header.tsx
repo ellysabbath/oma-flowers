@@ -81,7 +81,6 @@ const Header: React.FC<HeaderProps> = ({ cartCount: cartCountOverride }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   /* ---------- Live cart state ---------- */
-  const [cartId, setCartId] = useState<number | null>(null);
   const [cartCount, setCartCount] = useState<number>(cartCountOverride ?? 0);
   const [cartSubtotal, setCartSubtotal] = useState<number>(0);
   const [wishlistCount, setWishlistCount] = useState<number>(
@@ -118,7 +117,6 @@ const Header: React.FC<HeaderProps> = ({ cartCount: cartCountOverride }) => {
 
       const cart = await cartAPI.getOrCreateForUser(userId, sessionKey);
 
-      setCartId(cart.id);
       setCartCount(cart.total_items ?? 0);
       setCartSubtotal(Number(cart.subtotal ?? 0));
     } catch (err) {

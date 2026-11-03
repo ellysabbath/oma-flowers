@@ -1,5 +1,5 @@
 // src/components/distributor/DistributorLayout.tsx
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -16,7 +16,6 @@ import {
   ChevronUp,
   Loader2,
   Gift,
-  DollarSign,
   TrendingUp,
 } from 'lucide-react';
 
@@ -46,23 +45,6 @@ const DistributorLayout: React.FC = () => {
     'Distributor';
 
   const displayRank = distributor?.rank || 'Associate';
-
-  const initials = useMemo(() => {
-    if (user?.full_name) {
-      return user.full_name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
-    }
-    if (user?.first_name && user?.last_name) {
-      return (user.first_name[0] + user.last_name[0]).toUpperCase();
-    }
-    if (user?.first_name) return user.first_name[0].toUpperCase();
-    if (user?.email) return user.email[0].toUpperCase();
-    return 'D';
-  }, [user]);
 
   const avatarUrl =
     user?.profile_picture ||
@@ -371,7 +353,7 @@ const DistributorLayout: React.FC = () => {
             </div>
 
             <nav className="space-y-1">
-              {navItems.map((item: any) => (
+              {navItems.map((item) => (
                 <Link
                   key={item.path}
                   to={item.path}
@@ -463,7 +445,7 @@ const DistributorLayout: React.FC = () => {
             {/* Mobile navigation */}
             <div className="flex-1 overflow-y-auto py-4 px-3">
               <nav className="space-y-1">
-                {navItems.map((item: any) => (
+                {navItems.map((item) => (
                   <Link
                     key={item.path}
                     to={item.path}

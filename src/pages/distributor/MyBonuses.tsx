@@ -15,13 +15,11 @@ import {
   PartyPopper,
   Zap,
   Clock,
-  Loader2,
   RefreshCw,
   AlertCircle,
   X,
   ArrowLeft,
   CheckCircle2,
-  DollarSign,
 } from 'lucide-react';
 
 import { bonusAPI } from '../../api/bonuses';
@@ -32,8 +30,6 @@ import type { Bonus as ApiBonus, BonusStatus } from '../../types';
 /* ------------------------------------------------------------------ */
 /* Constants                                                           */
 /* ------------------------------------------------------------------ */
-
-const STATUSES: BonusStatus[] = ['pending', 'processing', 'paid'];
 
 const typeConfig: Record<
   string,
@@ -155,12 +151,10 @@ const MyBonuses: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // Try `getMine` first; fall back to `getAll` if backend filters by user.
       let list: ApiBonus[] = [];
       try {
         list = await bonusAPI.getMine();
       } catch (e: any) {
-        // Some backends return 405/404 for `mine=true`; fall back to getAll
         if (e?.response?.status === 404 || e?.response?.status === 405) {
           list = await bonusAPI.getAll();
         } else {

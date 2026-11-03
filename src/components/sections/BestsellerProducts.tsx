@@ -304,29 +304,32 @@ const BestsellerProducts: React.FC<BestsellerProductsProps> = ({
                   </div>
 
                   <div className="flex items-center justify-between mt-4 pt-3 border-t">
-                    <Button
-                      variant="primary"
-                      className="text-sm py-1 px-3"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddToCart(product);
-                      }}
-                      disabled={addingId === product.id}
-                    >
-                      {addingId === product.id ? (
-                        <>
-                          <Loader2
-                            size={14}
-                            className="inline mr-1 animate-spin"
-                          />
-                          Adding…
-                        </>
-                      ) : (
-                        <>
-                          <ShoppingCart size={14} className="inline mr-1" /> Add
-                        </>
-                      )}
-                    </Button>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="primary"
+                        className="text-sm py-1 px-3"
+                        onClick={() => handleAddToCart(product)}
+                        disabled={addingId === product.id}
+                      >
+                        {addingId === product.id ? (
+                          <>
+                            <Loader2
+                              size={14}
+                              className="inline mr-1 animate-spin"
+                            />
+                            Adding…
+                          </>
+                        ) : (
+                          <>
+                            <ShoppingCart
+                              size={14}
+                              className="inline mr-1"
+                            />{' '}
+                            Add
+                          </>
+                        )}
+                      </Button>
+                    </div>
 
                     <div className="flex gap-2">
                       <button

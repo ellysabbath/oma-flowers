@@ -10,10 +10,10 @@ import {
   Sparkles,
   Calendar,
   Gem,
-  Loader2,
+  
   RefreshCw,
   AlertCircle,
-  X,
+  
 } from 'lucide-react';
 
 import { awardAPI } from '../../api/awards';

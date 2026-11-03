@@ -1,6 +1,6 @@
 // src/pages/Search.tsx
 import React, { useState } from 'react';
-import { Search as SearchIcon, Filter, Grid, List, X } from 'lucide-react';
+import { Search as SearchIcon, X } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 
 const Search: React.FC = () => {
@@ -9,10 +9,24 @@ const Search: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState(query);
 
   // Mock search results
-  const results = query ? [
-    { id: 1, name: 'Luxury Class A Flower', price: 250000, image: 'https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=150' },
-    { id: 2, name: 'Classic Class B Flower', price: 34000, image: 'https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=150' },
-  ] : [];
+  const results = query
+    ? [
+        {
+          id: 1,
+          name: 'Luxury Class A Flower',
+          price: 250000,
+          image:
+            'https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=150',
+        },
+        {
+          id: 2,
+          name: 'Classic Class B Flower',
+          price: 34000,
+          image:
+            'https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=150',
+        },
+      ]
+    : [];
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +44,10 @@ const Search: React.FC = () => {
         <form onSubmit={handleSearch} className="mb-8">
           <div className="flex gap-2">
             <div className="flex-1 relative">
-              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <SearchIcon
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                size={18}
+              />
               <input
                 type="text"
                 value={searchTerm}
@@ -61,9 +78,16 @@ const Search: React.FC = () => {
         {query && results.length === 0 && (
           <div className="text-center py-12">
             <SearchIcon size={48} className="text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-700">No Results Found</h3>
-            <p className="text-gray-500 mt-2">We couldn't find any products matching "{query}"</p>
-            <Link to="/shop" className="inline-block mt-4 text-amber-600 hover:text-amber-700 font-medium">
+            <h3 className="text-xl font-semibold text-gray-700">
+              No Results Found
+            </h3>
+            <p className="text-gray-500 mt-2">
+              We couldn't find any products matching "{query}"
+            </p>
+            <Link
+              to="/shop"
+              className="inline-block mt-4 text-amber-600 hover:text-amber-700 font-medium"
+            >
               Browse All Products →
             </Link>
           </div>
@@ -71,18 +95,27 @@ const Search: React.FC = () => {
 
         {results.length > 0 && (
           <>
-            <p className="text-sm text-gray-500 mb-4">Showing {results.length} results for "{query}"</p>
+            <p className="text-sm text-gray-500 mb-4">
+              Showing {results.length} results for "{query}"
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {results.map((product) => (
-                <div key={product.id} className="bg-white rounded-xl shadow-sm border border-amber-200/30 overflow-hidden group">
+                <div
+                  key={product.id}
+                  className="bg-white rounded-xl shadow-sm border border-amber-200/30 overflow-hidden group"
+                >
                   <img
                     src={product.image}
                     alt={product.name}
                     className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                   <div className="p-4">
-                    <h3 className="font-semibold text-gray-800">{product.name}</h3>
-                    <p className="text-lg font-bold text-amber-600 mt-2">TSh {product.price.toLocaleString()}</p>
+                    <h3 className="font-semibold text-gray-800">
+                      {product.name}
+                    </h3>
+                    <p className="text-lg font-bold text-amber-600 mt-2">
+                      TSh {product.price.toLocaleString()}
+                    </p>
                     <button className="w-full mt-3 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors">
                       Add to Cart
                     </button>

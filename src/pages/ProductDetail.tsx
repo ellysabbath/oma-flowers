@@ -4,7 +4,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   Star,
   ShoppingCart,
-  Heart,
+  
   Minus,
   Plus,
   Truck,

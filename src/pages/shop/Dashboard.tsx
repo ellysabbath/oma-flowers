@@ -11,9 +11,9 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Award,
+  
   Gift,
-  UserPlus
+  
 } from 'lucide-react';
 
 const ShopDashboard: React.FC = () => {

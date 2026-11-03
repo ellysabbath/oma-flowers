@@ -6,19 +6,19 @@ import {
   Eye,
   Download,
   Printer,
-  Loader2,
+
   AlertCircle,
   RefreshCw,
   X,
   Copy,
   Check,
   ShoppingCart,
-  Store,
+ 
   User2Icon,
-  Award,
+  
   DollarSign,
   Calculator,
-  Info,
+
   TrendingUp,
   Package,
   Users,

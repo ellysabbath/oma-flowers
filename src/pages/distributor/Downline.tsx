@@ -1,5 +1,5 @@
 // src/pages/distributor/Downline.tsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Search,
@@ -26,6 +26,13 @@ import {
 } from '../../api/distributors';
 import { useAuth } from '../../context/AuthContext';
 import { SkeletonUsersPage } from '../../components/common/Skeleton';
+
+/* ------------------------------------------------------------------ */
+/* Tunables                                                            */
+/* ------------------------------------------------------------------ */
+
+/** Silent background refetch cadence while the tab is open/visible. */
+const POLL_INTERVAL_MS = 30_000; // 30 seconds
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -113,7 +120,7 @@ const resolveStatus = (node: HierarchyNode): DownlineMember['status'] => {
 };
 
 /**
- * Recursively flatten the hierarchy tree.
+ * Recursively flatten the hierarchy tree into a flat array.
  */
 const flattenHierarchy = (
   nodes: HierarchyNode[],
@@ -588,6 +595,8 @@ const DistributorDownline: React.FC = () => {
 
   const [members, setMembers] = useState<DownlineMember[]>([]);
   const [loading, setLoading] = useState(true);
+  /** Silent background refetch in progress (keeps table visible). */
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [noProfile, setNoProfile] = useState(false);
 
@@ -608,23 +617,45 @@ const DistributorDownline: React.FC = () => {
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
 
+  /* Guards for overlapping fetches */
+  const inFlightRef = useRef(false);
+  const hasLoadedOnceRef = useRef(false);
+
   /* ================================================================ */
   /* Load — /distributors/me/hierarchy/                                */
+  /*                                                                   */
+  /* `silent = true` keeps the current table rendered (no skeleton)    */
+  /* and swallows errors so a flaky background poll doesn't wipe the   */
+  /* screen. Used by polling + focus/visibility refreshes.             */
   /* ================================================================ */
+  const loadData = async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
 
-  const loadData = async () => {
-    try {
+    // Skip if a fetch is already running
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+
+    if (silent) {
+      setRefreshing(true);
+    } else {
       setLoading(true);
       setError(null);
       setNoProfile(false);
+    }
 
+    try {
       let hierarchy: MyHierarchyResponse;
       try {
         hierarchy = await distributorAPI.getMyHierarchy();
       } catch (e: any) {
         if (e?.response?.status === 404) {
+          // No distributor profile linked
           setNoProfile(true);
-          setLoading(false);
+          setMembers([]);
+          setMyDistributorId(null);
+          setDistributorName('');
+          setMyPBV(0);
+          setMyCGV(0);
           return;
         }
         throw e;
@@ -633,10 +664,11 @@ const DistributorDownline: React.FC = () => {
       const me = hierarchy.distributor;
       if (!me?.id) {
         setNoProfile(true);
-        setLoading(false);
+        setMembers([]);
         return;
       }
 
+      setNoProfile(false);
       setMyDistributorId(me.id);
       setDistributorName(pickDisplayName(me));
       setMyPBV(num(me.pbv));
@@ -644,19 +676,29 @@ const DistributorDownline: React.FC = () => {
 
       const flattened = flattenHierarchy(hierarchy.downline || [], 1);
       setMembers(flattened);
+      setError(null);
+      hasLoadedOnceRef.current = true;
     } catch (err: any) {
       console.error('Failed to load downline:', err);
-      setError(
-        err?.response?.data?.detail ||
-          err?.response?.data?.error ||
-          err?.message ||
-          'Failed to load your downline.'
-      );
+      // Don't clobber last good data on silent refresh failures
+      if (!silent || !hasLoadedOnceRef.current) {
+        setError(
+          err?.response?.data?.detail ||
+            err?.response?.data?.error ||
+            err?.message ||
+            'Failed to load your downline.'
+        );
+      }
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
+  /* ================================================================ */
+  /* Reset when the signed-in user changes                             */
+  /* ================================================================ */
   useEffect(() => {
     setError(null);
     setNoProfile(false);
@@ -665,6 +707,7 @@ const DistributorDownline: React.FC = () => {
     setDistributorName('');
     setMyPBV(0);
     setMyCGV(0);
+    hasLoadedOnceRef.current = false;
 
     if (authLoading) return;
     if (!(user as any)?.id) {
@@ -675,6 +718,55 @@ const DistributorDownline: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user?.id]);
 
+  /* ================================================================ */
+  /* Any modal open? Used to pause polling.                            */
+  /* ================================================================ */
+  const modalOpen = inviteOpen || !!removeTarget || !!selectedMember;
+
+  /* ================================================================ */
+  /* Auto-refresh: interval + window focus + visibility change         */
+  /*                                                                   */
+  /* Poll pauses when:                                                 */
+  /*   - the tab is hidden                                             */
+  /*   - any modal is open (invite / remove / detail)                  */
+  /*   - no distributor profile linked                                 */
+  /*   - the very first load hasn't completed yet                      */
+  /* ================================================================ */
+  useEffect(() => {
+    if (authLoading || !(user as any)?.id) return;
+    if (noProfile) return;
+    if (!hasLoadedOnceRef.current) return;
+    if (modalOpen) return;
+
+    let cancelled = false;
+
+    const tick = () => {
+      if (cancelled) return;
+      if (document.visibilityState !== 'visible') return;
+      loadData({ silent: true });
+    };
+
+    const interval = window.setInterval(tick, POLL_INTERVAL_MS);
+
+    const onFocus = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, (user as any)?.id, noProfile, modalOpen]);
+
   /* ---------- Remove handler ---------- */
   const handleRemove = async (action: 'detach' | 'delete') => {
     if (!removeTarget) return;
@@ -683,6 +775,7 @@ const DistributorDownline: React.FC = () => {
     try {
       await distributorAPI.removeDownline(removeTarget.id, action);
       setRemoveTarget(null);
+      // Explicit reload after a mutation so the change is immediately visible
       await loadData();
     } catch (err: any) {
       console.error('Failed to remove member:', err);
@@ -751,7 +844,7 @@ const DistributorDownline: React.FC = () => {
             downline can't be shown. Please contact support.
           </p>
           <button
-            onClick={loadData}
+            onClick={() => loadData()}
             className="mt-3 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-2"
           >
             <RefreshCw size={16} /> Retry
@@ -773,7 +866,7 @@ const DistributorDownline: React.FC = () => {
           <p className="text-gray-500 mt-2 text-sm">{error}</p>
           <div className="flex gap-3 justify-center mt-6">
             <button
-              onClick={loadData}
+              onClick={() => loadData()}
               className="px-6 py-3 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-2"
             >
               <RefreshCw size={16} /> Retry
@@ -806,12 +899,16 @@ const DistributorDownline: React.FC = () => {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={loadData}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+              onClick={() => loadData({ silent: true })}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               title="Refresh"
             >
-              <RefreshCw size={16} />
-              Refresh
+              <RefreshCw
+                size={16}
+                className={refreshing ? 'animate-spin' : ''}
+              />
+              {refreshing ? 'Refreshing…' : 'Refresh'}
             </button>
             <button
               onClick={() => setInviteOpen(true)}
@@ -936,7 +1033,12 @@ const DistributorDownline: React.FC = () => {
               </option>
             ))}
           </select>
-          <button className="px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+          <button
+            onClick={() => loadData({ silent: true })}
+            disabled={refreshing}
+            className="px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            title="Refresh"
+          >
             <Filter size={18} className="text-gray-500" />
           </button>
         </div>
@@ -1068,8 +1170,16 @@ const DistributorDownline: React.FC = () => {
                   </tbody>
                 </table>
               </div>
-              <div className="px-4 py-3 border-t border-amber-100/30 text-sm text-gray-500">
-                Showing {filteredMembers.length} of {members.length} members
+              <div className="px-4 py-3 border-t border-amber-100/30 text-sm text-gray-500 flex items-center justify-between">
+                <span>
+                  Showing {filteredMembers.length} of {members.length} members
+                </span>
+                {refreshing && (
+                  <span className="inline-flex items-center gap-1.5 text-xs text-amber-600">
+                    <Loader2 size={12} className="animate-spin" />
+                    Syncing…
+                  </span>
+                )}
               </div>
             </>
           )}
@@ -1191,7 +1301,7 @@ const DistributorDownline: React.FC = () => {
             isOpen={inviteOpen}
             onClose={() => setInviteOpen(false)}
             myDistributorId={myDistributorId}
-            onDone={loadData}
+            onDone={() => loadData()}
           />
         )}
 

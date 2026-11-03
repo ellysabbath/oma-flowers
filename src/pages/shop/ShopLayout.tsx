@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
-  ShoppingBag, 
+  
   Users, 
   Package, 
   Settings, 

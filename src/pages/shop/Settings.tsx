@@ -1,19 +1,14 @@
 // src/pages/shop/Settings.tsx
 import React, { useState } from 'react';
 import { 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Lock, 
+ 
   Bell, 
   Shield,
   Save,
   RefreshCw,
   Check,
   Store,
-  Clock,
-  DollarSign
+
 } from 'lucide-react';
 
 const ShopSettings: React.FC = () => {

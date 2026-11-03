@@ -1,8 +1,13 @@
 // src/api/adminUsers.ts
 import api from './index';
+import type {
+  AdminUserFullDetail,
+  AdminUserActivity,
+} from '../types/Admin';
 
 export interface AdminUser {
   id: number;
+  user_id?: string;
   email: string;
   username?: string;
   first_name?: string;
@@ -57,12 +62,17 @@ export const adminUsersAPI = {
     return res?.data ?? res;
   },
 
-  create: async (payload: Partial<AdminUser> & { password: string }): Promise<AdminUser> => {
+  create: async (
+    payload: Partial<AdminUser> & { password: string }
+  ): Promise<AdminUser> => {
     const res: any = await api.post(`${BASE}/`, payload);
     return res?.data ?? res;
   },
 
-  update: async (id: number, payload: Partial<AdminUser>): Promise<AdminUser> => {
+  update: async (
+    id: number,
+    payload: Partial<AdminUser>
+  ): Promise<AdminUser> => {
     const res: any = await api.patch(`${BASE}/${id}/`, payload);
     return res?.data ?? res;
   },
@@ -104,12 +114,29 @@ export const adminUsersAPI = {
     id: number,
     user_type: 'admin' | 'distributor' | 'customer'
   ): Promise<AdminUser> => {
-    const res: any = await api.post(`${BASE}/${id}/set-role/`, { user_type });
+    const res: any = await api.post(`${BASE}/${id}/set-role/`, {
+      user_type,
+    });
     return res?.data ?? res;
   },
 
   stats: async (): Promise<AdminUserStats> => {
     const res: any = await api.get(`${BASE}/stats/`);
+    return res?.data ?? res;
+  },
+
+  /* ---------- Full inspector (user + activity) ---------- */
+
+  getFullDetail: async (id: number): Promise<AdminUserFullDetail> => {
+    const res: any = await api.get(`${BASE}/${id}/full-detail/`);
+    return res?.data ?? res;
+  },
+
+  getActivity: async (
+    id: number,
+    params?: { limit?: number }
+  ): Promise<AdminUserActivity> => {
+    const res: any = await api.get(`${BASE}/${id}/activity/`, { params });
     return res?.data ?? res;
   },
 };

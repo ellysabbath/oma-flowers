@@ -10,7 +10,6 @@ import {
   TrendingUp,
   Eye,
   Gift,
-  Loader2,
   RefreshCw,
   AlertCircle,
 } from 'lucide-react';

@@ -1,6 +1,6 @@
 // src/pages/Blog.tsx
 import React, { useState } from 'react';
-import { Calendar, User, Tag, ArrowRight, Search } from 'lucide-react';
+import { Calendar, User, ArrowRight, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface BlogPost {

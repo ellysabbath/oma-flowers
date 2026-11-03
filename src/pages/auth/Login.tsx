@@ -1,37 +1,123 @@
 // src/pages/auth/Login.tsx
-import React, { useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+
+/* ------------------------------------------------------------------ */
+/* OMA ID helpers                                                     */
+/* ------------------------------------------------------------------ */
+
+const looksLikeOma = (raw: string): boolean => {
+  if (!raw) return false;
+  const s = raw.trim().toLowerCase();
+  if (s.startsWith('oma')) return true;
+  // Pure digits — user is typing the year / suffix directly
+  if (/^\d+$/.test(s)) return true;
+  return false;
+};
+
+/**
+ * Format raw keystrokes into `OMA-YYYY-XXXXXX`.
+ * Only digits are kept after the prefix; the year is capped at 4
+ * digits and the suffix at 6. Dashes are inserted automatically.
+ */
+const formatOma = (raw: string): string => {
+  // Preserve any leading letters the user typed (o, om, oma)
+  // so the caret doesn't collapse to position 0 on the first keystroke.
+  const letters = raw.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase();
+  const digits = raw.replace(/\D/g, '');
+
+  if (digits.length === 0) {
+    // Still typing letters — don't yet commit to "OMA-"
+    return letters;
+  }
+  const year = digits.slice(0, 4);
+  const suffix = digits.slice(4, 10);
+  let out = `OMA-${year}`;
+  if (suffix.length > 0) out += `-${suffix}`;
+  return out;
+};
+
+/**
+ * Compute where the caret should be, given the ORIGINAL cursor
+ * position (before the value was replaced) and the formatted value.
+ *
+ * The rule: count non-prefix characters (digits) before the caret.
+ * Then in the formatted string, place the caret after that many
+ * digits. This positions the caret at the "next insertion point" —
+ * visually the front of whatever the user is typing.
+ */
+const caretFront = (
+  rawBefore: string,
+  formatted: string,
+  rawCaret: number
+): number => {
+  const typedBefore = rawBefore.slice(0, rawCaret);
+  const digitsBefore = typedBefore.replace(/\D/g, '').length;
+
+  if (digitsBefore === 0) {
+    // No digits yet — caret goes right after the "OMA-" prefix
+    // so the user starts typing the year immediately.
+    return formatted.startsWith('OMA-') ? 4 : formatted.length;
+  }
+
+  // Walk the formatted string, counting digits, and stop after we've
+  // passed the same number of digits the user has typed.
+  let seen = 0;
+  for (let i = 0; i < formatted.length; i++) {
+    if (/\d/.test(formatted[i])) seen++;
+    if (seen === digitsBefore) return i + 1;
+  }
+  return formatted.length;
+};
+
+/* ------------------------------------------------------------------ */
+/* Component                                                          */
+/* ------------------------------------------------------------------ */
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
+
+  const identifierRef = useRef<HTMLInputElement | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState({
-    email: '',
+    identifier: '',
     password: '',
     rememberMe: false,
   });
 
   const [formErrors, setFormErrors] = useState({
-    email: '',
+    identifier: '',
     password: '',
   });
 
+  const inOmaMode = useMemo(
+    () => looksLikeOma(formData.identifier),
+    [formData.identifier]
+  );
+
+  /* ---------------------------------------------------------------- */
+  /* Validate                                                         */
+  /* ---------------------------------------------------------------- */
+
   const validateForm = () => {
     let isValid = true;
-    const errors = { email: '', password: '' };
+    const errors = { identifier: '', password: '' };
 
-    if (!formData.email) {
-      errors.email = 'Email is required';
+    if (!formData.identifier.trim()) {
+      errors.identifier = 'User ID, email, or username is required';
       isValid = false;
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      errors.email = 'Please enter a valid email address';
-      isValid = false;
+    } else if (inOmaMode) {
+      const full = formData.identifier.trim();
+      if (full.length >= 12 && !/^OMA-\d{4}-\d{6}$/.test(full)) {
+        errors.identifier = 'OMA ID must look like OMA-2025-847291';
+        isValid = false;
+      }
     }
 
     if (!formData.password) {
@@ -46,6 +132,51 @@ const Login: React.FC = () => {
     return isValid;
   };
 
+  /* ---------------------------------------------------------------- */
+  /* Identifier change — auto-format with FRONT-aligned caret         */
+  /* ---------------------------------------------------------------- */
+
+  const handleIdentifierChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const input = e.target;
+
+    // `value` here is already the raw DOM value (React hasn't yet
+    // re-rendered with our formatted string). Capture its caret
+    // position NOW, before we mutate anything.
+    const rawValue = input.value;
+    const rawCaret =
+      input.selectionStart ?? rawValue.length;
+
+    const isOma = looksLikeOma(rawValue);
+    const nextValue = isOma ? formatOma(rawValue) : rawValue;
+
+    setFormData((prev) => ({ ...prev, identifier: nextValue }));
+    if (formErrors.identifier) {
+      setFormErrors((prev) => ({ ...prev, identifier: '' }));
+    }
+    if (loginError) setLoginError(null);
+
+    // After React commits the new value, force the caret to the
+    // calculated "front" position.
+    requestAnimationFrame(() => {
+      const el = identifierRef.current;
+      if (!el) return;
+      if (isOma) {
+        const pos = caretFront(rawValue, nextValue, rawCaret);
+        el.setSelectionRange(pos, pos);
+      } else {
+        // Non-OMA mode: keep the caret where the user left it.
+        const pos = Math.min(rawCaret, nextValue.length);
+        el.setSelectionRange(pos, pos);
+      }
+    });
+  };
+
+  /* ---------------------------------------------------------------- */
+  /* Other fields                                                     */
+  /* ---------------------------------------------------------------- */
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
@@ -55,10 +186,12 @@ const Login: React.FC = () => {
     if (formErrors[name as keyof typeof formErrors]) {
       setFormErrors((prev) => ({ ...prev, [name]: '' }));
     }
-    if (loginError) {
-      setLoginError(null);
-    }
+    if (loginError) setLoginError(null);
   };
+
+  /* ---------------------------------------------------------------- */
+  /* Submit                                                           */
+  /* ---------------------------------------------------------------- */
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,9 +201,12 @@ const Login: React.FC = () => {
     setLoginError(null);
 
     try {
-      const response: any = await login(formData);
+      const response: any = await login({
+        identifier: formData.identifier.trim(),
+        password: formData.password,
+        rememberMe: formData.rememberMe,
+      });
 
-      // Read role from login response, with fallbacks
       const userType = String(
         response?.user_type ||
           response?.user?.user_type ||
@@ -78,26 +214,31 @@ const Login: React.FC = () => {
           'customer'
       ).toLowerCase();
 
-      // Route by role
       if (userType === 'admin') {
         navigate('/admin', { replace: true });
       } else if (userType === 'distributor') {
         navigate('/distributor', { replace: true });
       } else {
-        // customer (default)
         navigate('/', { replace: true });
       }
     } catch (error: any) {
+      const data = error?.response?.data;
       const errorMessage =
-        error?.response?.data?.error ||
-        error?.response?.data?.detail ||
-        error?.response?.data?.message ||
-        'Invalid email or password. Please try again.';
-      setLoginError(errorMessage);
+        data?.error ||
+        data?.detail ||
+        data?.message ||
+        data?.identifier?.[0] ||
+        data?.non_field_errors?.[0] ||
+        'Invalid credentials. Please try again.';
+      setLoginError(String(errorMessage));
     } finally {
       setIsLoading(false);
     }
   };
+
+  /* ---------------------------------------------------------------- */
+  /* Render                                                           */
+  /* ---------------------------------------------------------------- */
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
@@ -108,15 +249,15 @@ const Login: React.FC = () => {
           </Link>
           <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
           <p className="mt-2 text-sm text-gray-600">
-            Sign in to your account to continue shopping
+            Sign in with your OMA User ID, email, or username
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Email */}
+          {/* Identifier */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email Address
+              User ID, Email, or Username
             </label>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -135,20 +276,37 @@ const Login: React.FC = () => {
                 </svg>
               </div>
               <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="Enter your email"
-                className={`w-full px-4 py-3 pl-10 rounded-lg border ${
-                  formErrors.email
+                ref={identifierRef}
+                type="text"
+                name="identifier"
+                value={formData.identifier}
+                onChange={handleIdentifierChange}
+                placeholder="OMA-2025-847291, you@example.com, or username"
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode={inOmaMode ? 'numeric' : 'text'}
+                className={`w-full px-4 py-3 pl-10 rounded-lg border font-mono tracking-wide ${
+                  formErrors.identifier
                     ? 'border-red-500 focus:ring-red-500'
                     : 'border-gray-300 focus:ring-amber-500'
                 } focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200`}
               />
             </div>
-            {formErrors.email && (
-              <p className="text-sm text-red-500 mt-1">{formErrors.email}</p>
+            {formErrors.identifier ? (
+              <p className="text-sm text-red-500 mt-1">
+                {formErrors.identifier}
+              </p>
+            ) : inOmaMode ? (
+              <p className="text-xs text-amber-600 mt-1">
+                Formatting as OMA ID — just type the digits.
+              </p>
+            ) : (
+              <p className="text-xs text-gray-400 mt-1">
+                Your OMA ID was sent to your email and phone when you
+                registered.
+              </p>
             )}
           </div>
 
@@ -179,7 +337,8 @@ const Login: React.FC = () => {
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="Enter your password"
-                className={`w-full px-4 py-3 pl-10 rounded-lg border ${
+                autoComplete="current-password"
+                className={`w-full px-4 py-3 pl-10 pr-10 rounded-lg border ${
                   formErrors.password
                     ? 'border-red-500 focus:ring-red-500'
                     : 'border-gray-300 focus:ring-amber-500'
@@ -189,6 +348,9 @@ const Login: React.FC = () => {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label={
+                  showPassword ? 'Hide password' : 'Show password'
+                }
               >
                 {showPassword ? (
                   <svg

@@ -1,6 +1,6 @@
 // src/pages/shop/Inventory.tsx
 import React, { useState } from 'react';
-import { Search, Filter, Plus, Edit, Trash2, Package, AlertCircle, CheckCircle } from 'lucide-react';
+import { Search, Filter, Plus, Edit, Trash2} from 'lucide-react';
 
 interface Product {
   id: number;

@@ -2,17 +2,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   TrendingUp,
-  TrendingDown,
   Users,
   DollarSign,
   Award,
   Store,
   Package,
-  Download,
   BarChart3,
   PieChart as PieIcon,
   Activity,
-  ShoppingCart,
   Gift,
   Loader2,
   RefreshCw,

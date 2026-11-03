@@ -1,6 +1,6 @@
 // src/pages/About.tsx
 import React from 'react';
-import { Flower2, Users, Award, Heart, Shield, Truck, Sparkles, Star } from 'lucide-react';
+import { Flower2, Users, Award, Heart } from 'lucide-react';
 
 const About: React.FC = () => {
   const features = [

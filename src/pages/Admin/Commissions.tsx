@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search,
-  Filter,
+
   Download,
   DollarSign,
   Users,

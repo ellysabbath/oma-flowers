@@ -1,6 +1,6 @@
 // src/pages/shop/Analytics.tsx
 import React from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Users, ShoppingBag, Award, Gift, Calendar } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 
 const ShopAnalytics: React.FC = () => {
   const monthlyData = [
@@ -65,20 +65,20 @@ const ShopAnalytics: React.FC = () => {
         <h3 className="font-semibold text-gray-800 mb-4">Monthly Performance</h3>
         <div className="space-y-3">
           {monthlyData.map((data, index) => {
-            const maxRevenue = Math.max(...monthlyData.map(d => d.revenue));
+            const maxRevenue = Math.max(...monthlyData.map((d) => d.revenue));
             const height = (data.revenue / maxRevenue) * 100;
             return (
               <div key={index} className="flex items-center gap-4">
                 <span className="text-sm text-gray-500 w-10">{data.month}</span>
                 <div className="flex-1 flex items-center gap-4">
                   <div className="flex-1 bg-amber-100 rounded-full h-3 overflow-hidden">
-                    <div 
+                    <div
                       className="h-full bg-gradient-to-r from-amber-400 to-amber-600 rounded-full transition-all duration-500"
                       style={{ width: `${Math.max(height, 5)}%` }}
                     />
                   </div>
                   <div className="flex items-center gap-4 text-xs text-gray-500">
-                    <span>TSh {(data.revenue/1000).toFixed(0)}K</span>
+                    <span>TSh {(data.revenue / 1000).toFixed(0)}K</span>
                     <span>{data.orders} orders</span>
                     <span>{data.customers} customers</span>
                   </div>
@@ -96,23 +96,37 @@ const ShopAnalytics: React.FC = () => {
         </div>
         <div className="divide-y divide-amber-100/30">
           {topProducts.map((product, index) => (
-            <div key={index} className="px-6 py-3 flex items-center justify-between hover:bg-amber-50/30 transition-colors">
+            <div
+              key={index}
+              className="px-6 py-3 flex items-center justify-between hover:bg-amber-50/30 transition-colors"
+            >
               <div className="flex items-center gap-3">
-                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${
-                  index === 0 ? 'bg-amber-500' :
-                  index === 1 ? 'bg-gray-400' :
-                  index === 2 ? 'bg-amber-700' :
-                  'bg-amber-300'
-                }`}>
+                <span
+                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${
+                    index === 0
+                      ? 'bg-amber-500'
+                      : index === 1
+                      ? 'bg-gray-400'
+                      : index === 2
+                      ? 'bg-amber-700'
+                      : 'bg-amber-300'
+                  }`}
+                >
                   {index + 1}
                 </span>
                 <div>
-                  <p className="text-sm font-medium text-gray-800">{product.name}</p>
-                  <p className="text-xs text-gray-400">{product.sales} units sold</p>
+                  <p className="text-sm font-medium text-gray-800">
+                    {product.name}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {product.sales} units sold
+                  </p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-sm font-bold text-amber-600">TSh {(product.revenue/1000).toFixed(0)}K</p>
+                <p className="text-sm font-bold text-amber-600">
+                  TSh {(product.revenue / 1000).toFixed(0)}K
+                </p>
               </div>
             </div>
           ))}

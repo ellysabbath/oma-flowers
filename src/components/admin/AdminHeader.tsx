@@ -68,25 +68,6 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({ toggleSidebar }) => {
 
   const userEmail = user?.email || '';
 
-  const initials = (() => {
-    if (user?.full_name) {
-      return user.full_name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
-    }
-    if (user?.first_name && user?.last_name) {
-      return (
-        user.first_name[0] + user.last_name[0]
-      ).toUpperCase();
-    }
-    if (user?.first_name) return user.first_name[0].toUpperCase();
-    if (user?.email) return user.email[0].toUpperCase();
-    return 'U';
-  })();
-
   const avatarUrl =
     user?.profile_picture ||
     `https://ui-avatars.com/api/?name=${encodeURIComponent(

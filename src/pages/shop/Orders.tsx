@@ -1,6 +1,6 @@
 // src/pages/shop/Orders.tsx
 import React, { useState } from 'react';
-import { Search, Filter, Eye, ChevronDown, Printer, Download } from 'lucide-react';
+import { Search, Filter, Eye,Printer, Download } from 'lucide-react';
 
 interface Order {
   id: string;

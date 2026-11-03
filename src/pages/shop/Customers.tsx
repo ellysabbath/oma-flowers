@@ -1,6 +1,6 @@
 // src/pages/shop/Customers.tsx
 import React, { useState } from 'react';
-import { Search, Filter, UserPlus, Eye, Mail, Phone, Calendar, Users } from 'lucide-react';
+import { Search, Filter, UserPlus, Eye } from 'lucide-react';
 
 interface Customer {
   id: number;

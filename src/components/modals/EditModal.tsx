@@ -26,7 +26,7 @@ const EditModal: React.FC<EditModalProps> = ({
   initialData,
   isLoading = false,
 }) => {
-  const [formData, setFormData] = useState<any>({});
+  const [formData, setFormData] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -37,20 +37,24 @@ const EditModal: React.FC<EditModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev: Record<string, any>) => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors((prev: Record<string, string>) => ({ ...prev, [name]: '' }));
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate
     const newErrors: Record<string, string> = {};
-    fields.forEach(field => {
+    fields.forEach((field) => {
       if (field.required && !formData[field.name]) {
         newErrors[field.name] = `${field.label} is required`;
       }
@@ -70,23 +74,34 @@ const EditModal: React.FC<EditModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="p-6 border-b border-amber-100/50 flex items-center justify-between sticky top-0 bg-white z-10">
           <h3 className="text-xl font-bold text-gray-800">{title}</h3>
-          <button onClick={onClose} className="p-2 hover:bg-amber-50 rounded-lg transition-colors">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-amber-50 rounded-lg transition-colors"
+          >
             <X size={20} className="text-gray-500" />
           </button>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {fields.map((field) => (
             <div key={field.name}>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 {field.label}
-                {field.required && <span className="text-red-500 ml-1">*</span>}
+                {field.required && (
+                  <span className="text-red-500 ml-1">*</span>
+                )}
               </label>
-              
+
               {field.type === 'select' ? (
                 <select
                   name={field.name}
@@ -97,8 +112,10 @@ const EditModal: React.FC<EditModalProps> = ({
                   }`}
                 >
                   <option value="">Select {field.label}</option>
-                  {field.options?.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  {field.options?.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
                   ))}
                 </select>
               ) : field.type === 'textarea' ? (
@@ -123,7 +140,9 @@ const EditModal: React.FC<EditModalProps> = ({
                 />
               )}
               {errors[field.name] && (
-                <p className="text-sm text-red-500 mt-1">{errors[field.name]}</p>
+                <p className="text-sm text-red-500 mt-1">
+                  {errors[field.name]}
+                </p>
               )}
             </div>
           ))}

@@ -18,11 +18,6 @@ import type {
 /* Safe localStorage helpers                                           */
 /* ------------------------------------------------------------------ */
 
-/**
- * Persist a value to localStorage without ever throwing.
- * localStorage is a *cache*, not a source of truth — a quota failure
- * must never take down the app.
- */
 const safeSetItem = (key: string, value: string): boolean => {
   try {
     localStorage.setItem(key, value);
@@ -33,7 +28,6 @@ const safeSetItem = (key: string, value: string): boolean => {
         `(likely quota exceeded). Skipping cache.`,
       err
     );
-    // Best-effort: drop the offending entry so other writes can succeed.
     try {
       localStorage.removeItem(key);
     } catch {
@@ -59,11 +53,6 @@ const safeGetItem = (key: string): string | null => {
   }
 };
 
-/**
- * Persist only a minimal user "stub" so the UI can hydrate quickly on
- * refresh without bloating localStorage. Full profile is re-fetched
- * from the API on demand.
- */
 const buildUserStub = (u: User) => ({
   id: u.id,
   username: u.username,
@@ -158,22 +147,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   /* ---------- Login ---------- */
   const login = async (credentials: LoginCredentials) => {
-    // Throwing here is correct — login *is* the critical path.
     const response = await authAPI.login(credentials);
 
-    // Token storage is small; safe to set. But guard anyway.
     safeSetItem('access_token', response.access);
     safeSetItem('refresh_token', response.refresh);
 
-    // User payload may be huge (e.g. admin) — persist a stub only.
     persistUser(response.user);
 
     setUser(response.user);
     setUserType(response.user_type ?? response.user?.user_type ?? null);
 
     if (response.distributor) {
-      setDistributor(response.distributor);
-      safeSetItem('distributor', JSON.stringify(response.distributor));
+      setDistributor((prev) => {
+        const merged = {
+          ...(prev ?? {}),
+          ...response.distributor,
+        } as Distributor;
+        safeSetItem('distributor', JSON.stringify(merged));
+        return merged;
+      });
     }
 
     return response;
@@ -206,14 +198,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   /* ---------- updateUser ---------- */
-  /**
-   * Update React state immediately; then try to cache.
-   * A cache failure (quota) must NEVER throw — the app can operate
-   * entirely from in-memory state.
-   */
   const updateUser = (updatedUser: User) => {
     setUser(updatedUser);
-    persistUser(updatedUser); // safe, never throws
+    persistUser(updatedUser);
   };
 
   const value: AuthContextType = {

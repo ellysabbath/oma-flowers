@@ -20,7 +20,6 @@ import {
   KeyRound,
   CheckCircle2,
   XCircle,
-  Globe,
   Building2,
   Hash,
   AtSign,

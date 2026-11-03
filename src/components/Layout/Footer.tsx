@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, Mail, Phone, Globe, ChevronDown, ChevronRight, Send } from 'lucide-react';
+import { MapPin, Mail, Phone, Globe, ChevronRight, Send } from 'lucide-react';
 
 const Footer: React.FC = () => {
   // Navigation handlers
@@ -77,21 +77,12 @@ const Footer: React.FC = () => {
                   placeholder="Enter your email" 
                   className="flex-1 px-4 py-2.5 rounded-l-lg outline-none text-gray-800 text-sm border-2 border-transparent focus:border-primary transition-colors"
                 />
-              
               </div>
               <div className="flex gap-3 mt-2">
-                <a href="#" className="p-2 bg-gray-800 rounded-full hover:bg-primary transition-colors">
-                  
-                </a>
-                <a href="#" className="p-2 bg-gray-800 rounded-full hover:bg-primary transition-colors">
-                  
-                </a>
-                <a href="#" className="p-2 bg-gray-800 rounded-full hover:bg-primary transition-colors">
-                  
-                </a>
-                <a href="#" className="p-2 bg-gray-800 rounded-full hover:bg-primary transition-colors">
-                 
-                </a>
+                <a href="#" className="p-2 bg-gray-800 rounded-full hover:bg-primary transition-colors"></a>
+                <a href="#" className="p-2 bg-gray-800 rounded-full hover:bg-primary transition-colors"></a>
+                <a href="#" className="p-2 bg-gray-800 rounded-full hover:bg-primary transition-colors"></a>
+                <a href="#" className="p-2 bg-gray-800 rounded-full hover:bg-primary transition-colors"></a>
               </div>
             </div>
           </div>

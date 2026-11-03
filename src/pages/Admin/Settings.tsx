@@ -2,31 +2,19 @@
 import React, { useState } from 'react';
 import {
   Settings as SettingsIcon,
-  User,
+ 
   Bell,
   Shield,
-  Globe,
-  Mail,
-  Smartphone,
-  Palette,
-  Database,
-  Cloud,
+
   Lock,
   Key,
-  Users,
-  Store,
+
   DollarSign,
   Percent,
-  Calendar,
-  Clock,
+ 
   Save,
   RefreshCw,
-  ChevronDown,
-  Upload,
-  Trash2,
-  Eye,
-  EyeOff,
-  Copy,
+ 
   Check
 } from 'lucide-react';
 

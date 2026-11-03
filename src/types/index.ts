@@ -1,52 +1,79 @@
 // src/types/index.ts
+/**
+ * Canonical type barrel.
+ *
+ * Grouped by domain:
+ *   User · Distributor · Shop · Cart · Category · Product ·
+ *   Order · Commission · Bonus · Award · Blog · Analytics ·
+ *   API envelope · Auth · Admin
+ *
+ * The OMA public identifier `user_id` (e.g. "OMA-2025-847291")
+ * appears on every user-shaped type so screens can display and
+ * search on it consistently.
+ */
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /* User                                                               */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
+
+export type UserRole = 'customer' | 'distributor' | 'admin';
+export type UserStatus = 'active' | 'inactive' | 'pending' | 'banned';
 
 export interface User {
   id: number;
+  /** Public OMA identifier, e.g. "OMA-2025-847291". */
+  user_id: string;
+
   email: string;
   username: string;
   first_name: string;
   last_name: string;
   full_name: string;
-  phone: string;
-  country: string;
-  region: string;
-  city: string;
-  profile_picture: string | null;
-  user_type: 'customer' | 'distributor' | 'admin';
-  status: 'active' | 'inactive' | 'pending' | 'banned';
+
+  phone?: string | null;
+  country?: string | null;
+  region?: string | null;
+  city?: string | null;
+
+  profile_picture?: string | null;
+  has_profile_picture?: boolean;
+
+  user_type: UserRole;
+  status: UserStatus;
+
   email_verified: boolean;
   email_verified_at?: string | null;
+
   created_at: string;
   updated_at?: string;
+
   last_login?: string | null;
   date_joined?: string;
+
   is_active?: boolean;
   is_staff?: boolean;
   is_superuser?: boolean;
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /* Distributor                                                        */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 export interface DistributorUser {
   id: number;
+  user_id: string;
   email: string;
   username: string;
   first_name: string;
   last_name: string;
   full_name: string;
-  phone: string;
-  country: string;
-  region: string;
-  city: string;
-  profile_picture: string | null;
-  user_type: 'customer' | 'distributor' | 'admin';
-  status: 'active' | 'inactive' | 'pending' | 'banned';
+  phone?: string | null;
+  country?: string | null;
+  region?: string | null;
+  city?: string | null;
+  profile_picture?: string | null;
+  user_type: UserRole;
+  status: UserStatus;
   email_verified: boolean;
   created_at: string;
 }
@@ -79,9 +106,9 @@ export interface DistributorStats {
   growth_rate: number;
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /* Shop                                                               */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 export interface Shop {
   id: number;
@@ -113,12 +140,13 @@ export interface Shop {
   updated_at: string;
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /* Cart                                                               */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 export interface CartUserMini {
   id: number;
+  user_id?: string;
   email: string;
   username: string;
   full_name: string;
@@ -201,9 +229,9 @@ export interface CartItemUpdatePayload {
   bv?: number;
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /* Category                                                           */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 export interface Category {
   id: number;
@@ -221,9 +249,9 @@ export interface Category {
   updated_at?: string;
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /* Product                                                            */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 export interface Product {
   id: number;
@@ -250,9 +278,9 @@ export interface Product {
   updated_at?: string;
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /* Order                                                              */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 export interface OrderItem {
   id: number;
@@ -271,6 +299,7 @@ export interface Order {
   customer: number;
   customer_name: string;
   customer_email: string;
+  customer_user_id?: string;
   distributor: number | null;
   distributor_name: string | null;
   total_amount: number;
@@ -290,9 +319,9 @@ export interface Order {
   items: OrderItem[];
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /* Commission                                                         */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 export interface Commission {
   id: number;
@@ -314,9 +343,9 @@ export interface Commission {
   updated_at: string;
 }
 
-/* ------------------------------------------------------------------ */
-/* Bonus — FULLY typed                                                */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
+/* Bonus                                                              */
+/* ================================================================== */
 
 export type BonusType =
   | 'consistency'
@@ -348,7 +377,6 @@ export interface Bonus {
   updated_at?: string;
 }
 
-/** Payload for creating a bonus. */
 export interface BonusCreatePayload {
   distributor: number;
   name: string;
@@ -361,12 +389,11 @@ export interface BonusCreatePayload {
   payment_date?: string | null;
 }
 
-/** Payload for updating a bonus (partial). */
 export type BonusUpdatePayload = Partial<BonusCreatePayload>;
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /* Award                                                              */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 export interface Award {
   id: number;
@@ -384,9 +411,9 @@ export interface Award {
   updated_at?: string;
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /* Blog                                                               */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 export interface BlogPost {
   id: number;
@@ -404,9 +431,9 @@ export interface BlogPost {
   created_at: string;
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /* Analytics                                                          */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 export interface AnalyticsData {
   totalRevenue: number;
@@ -445,9 +472,9 @@ export interface RankDistribution {
   percentage: number;
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /* API envelope                                                       */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 export interface ApiResponse<T> {
   data: T;
@@ -461,12 +488,13 @@ export interface PaginatedResponse<T> {
   results: T[];
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /* Auth                                                               */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
+/** Login can be done with an OMA User ID, email, or username. */
 export interface LoginCredentials {
-  email: string;
+  identifier: string;
   password: string;
   rememberMe?: boolean;
 }
@@ -476,21 +504,34 @@ export interface RegisterData {
   username: string;
   first_name: string;
   last_name: string;
-  phone: string;
-  country: string;
-  region: string;
-  city: string;
+  phone?: string;
+  country?: string;
+  region?: string;
+  city?: string;
   profile_picture?: string;
   password: string;
   password2: string;
+}
+
+export interface RegisterResponse {
+  message: string;
+  email: string;
+  /** OMA User ID auto-assigned on creation. */
+  user_id: string;
 }
 
 export interface AuthResponse {
   access: string;
   refresh: string;
   user: User;
-  distributor: Distributor | null;
-  user_type: string;
+  distributor: {
+    id: number;
+    rank: string;
+    level: number;
+    pbv: string;
+    cgv: string;
+  } | null;
+  user_type: UserRole;
 }
 
 export interface ChangePasswordData {
@@ -507,4 +548,215 @@ export interface UpdateProfileData {
   region?: string;
   city?: string;
   profile_picture?: string;
+}
+
+export interface ResetPasswordData {
+  email: string;
+}
+
+export interface VerifyAccountData {
+  email: string;
+  code: string;
+}
+
+export interface PasswordResetVerifyData {
+  email: string;
+  code: string;
+  password: string;
+  confirmPassword: string;
+}
+
+/* ================================================================== */
+/* Admin — users & activity                                           */
+/* ================================================================== */
+
+export interface AdminUser extends User {}
+
+export interface AdminUserStats {
+  total: number;
+  admins: number;
+  distributors: number;
+  customers: number;
+  active: number;
+  inactive: number;
+  banned: number;
+  pending: number;
+  email_verified: number;
+  email_unverified: number;
+  with_phone: number;
+  created_today: number;
+  created_this_week: number;
+  created_this_month: number;
+}
+
+export interface AdminUserListParams {
+  page?: number;
+  page_size?: number;
+  user_type?: UserRole;
+  status?: UserStatus;
+  email_verified?: boolean;
+  is_active?: boolean;
+  user_id?: string;
+  search?: string;
+  ordering?: string;
+}
+
+export interface AdminUserCreatePayload {
+  email: string;
+  username?: string;
+  first_name?: string;
+  last_name?: string;
+  full_name?: string;
+  phone?: string;
+  country?: string;
+  region?: string;
+  city?: string;
+  user_type?: UserRole;
+  status?: UserStatus;
+  password: string;
+}
+
+export type AdminUserUpdatePayload = Partial<
+  Omit<AdminUserCreatePayload, 'password'>
+>;
+
+export interface AdminDistributorProfile {
+  id: number;
+  rank: string;
+  level: number;
+  pbv: number;
+  cgv: number;
+  bonus_percentage: number;
+  join_date: string;
+  is_active: boolean;
+  upline_id: number | null;
+  upline_name: string | null;
+  downline_count: number;
+  active_downline_count: number;
+}
+
+export interface AdminShopMini {
+  id: number;
+  name: string;
+  location: string;
+  region: string;
+  status: string;
+  performance_level: string;
+  monthly_revenue: number | string;
+}
+
+export interface AdminOrderMini {
+  id: number;
+  order_number: string;
+  status: string;
+  payment_status: string;
+  total_amount: number;
+  total_bv: number;
+  order_date: string;
+}
+
+export interface AdminCommissionMini {
+  id: number;
+  type: 'personal' | 'differential';
+  amount: string;
+  pbv: string;
+  status: 'paid' | 'pending' | 'processing';
+  created_at: string;
+}
+
+export interface AdminBonusMini {
+  id: number;
+  name: string;
+  type: string;
+  amount: string;
+  month: string;
+  year: number;
+  status: 'paid' | 'pending' | 'processing';
+}
+
+export interface AdminCartMini {
+  id: number;
+  code: string;
+  status: 'active' | 'converted' | 'abandoned' | 'expired';
+  total_items: number;
+  subtotal: number | string;
+  created_at: string;
+}
+
+export interface AdminUserCounts {
+  orders: number;
+  commissions: number;
+  bonuses: number;
+  awards: number;
+  carts: number;
+  shops: number;
+  downline_members: number;
+  activity_events: number;
+}
+
+export interface AdminUserTotals {
+  order_revenue: number;
+  total_bv: number;
+  total_commission: number;
+  total_bonuses: number;
+}
+
+export type ActivityEventType =
+  | 'login'
+  | 'login_failed'
+  | 'logout'
+  | 'register'
+  | 'verify_email'
+  | 'password_change'
+  | 'password_reset'
+  | 'profile_update'
+  | 'role_change'
+  | 'status_change'
+  | 'order_placed'
+  | 'order_updated'
+  | 'order_cancelled'
+  | 'cart_updated'
+  | 'commission_earned'
+  | 'bonus_awarded'
+  | 'downline_added'
+  | 'downline_removed'
+  | 'admin_action';
+
+export interface ActivityEvent {
+  id: string;
+  type: ActivityEventType;
+  timestamp: string;
+  summary: string;
+  description?: string;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  metadata?: Record<string, any>;
+}
+
+export interface AdminUserActivityCounts {
+  logins: number;
+  failed_logins: number;
+  orders: number;
+  commissions: number;
+  bonuses: number;
+  downline_members: number;
+}
+
+export interface AdminUserActivity {
+  user: User;
+  counts: AdminUserActivityCounts;
+  events: ActivityEvent[];
+}
+
+export interface AdminUserFullDetail {
+  user: User;
+  counts: AdminUserCounts;
+  totals: AdminUserTotals;
+  distributor: AdminDistributorProfile | null;
+  shops: AdminShopMini[];
+  recent_orders: AdminOrderMini[];
+  recent_commissions: AdminCommissionMini[];
+  recent_bonuses: AdminBonusMini[];
+  recent_carts: AdminCartMini[];
+  recent_activity: ActivityEvent[];
 }

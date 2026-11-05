@@ -1,6 +1,6 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios';
 
-const API_URL =  'http://127.0.0.1:8000/api/v1';
+const API_URL =  'https://omaflowers.pythonanywhere.com/api/v1';
 
 class ApiService {
   private api: AxiosInstance;
